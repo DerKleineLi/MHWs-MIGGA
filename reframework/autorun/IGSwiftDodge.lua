@@ -4,6 +4,7 @@ config = config or {}
 config.enable_hook = config.enable_hook or true
 config.enable_back_dodge = config.enable_back_dodge or false
 config.enable_landing = config.enable_landing or false
+config.enable_weak_attack = config.enable_weak_attack or false
 
 local function preChangeActionRequest(args)
     if not config.enable_hook then return end
@@ -26,7 +27,15 @@ local function preChangeActionRequest(args)
     -- log.debug("Layer: " .. tostring(layer))
     -- log.debug("Action ID: " .. tostring(category) .. ":" .. tostring(index))
 
-    if layer == 0 and category == 2 and (index == 55 or index == 56 or (config.enable_landing and (index == 36 or index == 46 or index == 49))) then
+    if layer == 0 and category == 2 and (
+        index == 55 or index == 56 or (
+            config.enable_landing and (
+                index == 36 or index == 46 or index == 49
+            )
+        ) or (
+            config.enable_weak_attack and index==27
+        )
+    ) then
         local ActionIDType = sdk.find_type_definition("ace.ACTION_ID")
         local instance = ValueType.new(ActionIDType)
         sdk.set_native_field(instance, ActionIDType, "_Category", 1)
@@ -79,6 +88,7 @@ re.on_draw_ui(function()
         changed, config.enable_hook = imgui.checkbox("Basic", config.enable_hook)
         changed, config.enable_back_dodge = imgui.checkbox("Back Dodge", config.enable_back_dodge)
         changed, config.enable_landing = imgui.checkbox("Air Landing", config.enable_landing)
+        changed, config.enable_weak_attack = imgui.checkbox("Weak Attack", config.enable_weak_attack)
 
         imgui.tree_pop()
     end
