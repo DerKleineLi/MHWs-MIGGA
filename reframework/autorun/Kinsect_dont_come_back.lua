@@ -87,7 +87,7 @@ function(args)
     local action_id = args[3]
     local category = sdk.get_native_field(action_id, sdk.find_type_definition("ace.ACTION_ID"), "_Category")
     local index = sdk.get_native_field(action_id, sdk.find_type_definition("ace.ACTION_ID"), "_Index")
-    log.debug("category: " .. category .. ", index: " .. index)
+    -- log.debug("category: " .. category .. ", index: " .. index)
     if category == 0 and index == 17 then
         if in_hold_attack and config.charged_attack then
             return sdk.PreHookResult.SKIP_ORIGINAL
