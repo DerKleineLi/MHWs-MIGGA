@@ -1,8 +1,21 @@
 -- config
-local config = json.load_file("IGAimedDraw_settings.json")
+local function merge_tables(t1, t2)
+    for k, v in pairs(t2) do
+        if type(v) == "table" and type(t1[k] or false) == "table" then
+            merge_tables(t1[k], v)
+        else
+            t1[k] = v
+        end
+    end
+end
 
-config = config or {}
-config.enabled = config.enabled or true
+local saved_config = json.load_file("IGAimedDraw_settings.json") or {}
+
+local config = {
+    enabled = true,
+}
+
+merge_tables(config, saved_config)
 
 -- core
 local in_doEnter = false

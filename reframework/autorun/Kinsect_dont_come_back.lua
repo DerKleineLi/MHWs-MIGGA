@@ -1,13 +1,26 @@
 -- config
-local config = json.load_file("Kinsect_dont_come_back_settings.json")
+local function merge_tables(t1, t2)
+    for k, v in pairs(t2) do
+        if type(v) == "table" and type(t1[k] or false) == "table" then
+            merge_tables(t1[k], v)
+        else
+            t1[k] = v
+        end
+    end
+end
 
-config = config or {}
-config.auto_back_time = config.auto_back_time or 200.0
-config.charged_attack = config.charged_attack or true
-config.helicopter = config.helicopter or true
-config.aim_attack_start = config.aim_attack_start or true
-config.aim_attack_end = config.aim_attack_end or true
-config.wide_sweep = config.wide_sweep or true
+local saved_config = json.load_file("Kinsect_dont_come_back_settings.json") or {}
+
+local config = {
+    auto_back_time = 200.0,
+    charged_attack = true,
+    helicopter = false,
+    aim_attack_start = true,
+    aim_attack_end = true,
+    wide_sweep = true,
+}
+
+merge_tables(config, saved_config)
 
 -- action states
 -- app.Wp10Action.cHoldAttackSuper.doUpdate()
@@ -103,6 +116,11 @@ function(args)
     end
     if category == 0 and index == 4 then
         if in_aim_attack_update and config.aim_attack_end then
+            local ActionIDType = sdk.find_type_definition("ace.ACTION_ID")
+            local instance = ValueType.new(ActionIDType)
+            sdk.set_native_field(instance, ActionIDType, "_Category", 0)
+            sdk.set_native_field(instance, ActionIDType, "_Index", 7)
+            Wp10Insect:call("requestChangeAction(ace.ACTION_ID, System.Boolean)", instance, false)
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
         if in_baton_s_slash and config.wide_sweep then
