@@ -12,8 +12,9 @@ end
 local saved_config = json.load_file("IG_better_cancel.json") or {}
 
 local config = {
+    all = false,
     dodge = true,
-    move = true,
+    move = false,
     move_delay = 2,
     jump = true,
     ground_attacks = true,
@@ -23,7 +24,7 @@ local config = {
     air_motion_after_aim_attack = true,
     always_recall_kinsect = true,
     skip_kinsect_catch = true,
-    skip_stand_up = true
+    skip_stand_up = false
 }
 
 merge_tables(config, saved_config)
@@ -98,6 +99,7 @@ local function preHook(args)
     local _Pre_AIM_ATTACK = Wp10Cancel:get_field("_Pre_AIM_ATTACK")
     local _AIM_ATTACK = Wp10Cancel:get_field("_AIM_ATTACK")
     local _All = Wp10Cancel:get_field("_All")
+    local _Move = Wp10Cancel:get_field("_Move")
     local _Pre_INSECT_ORDER = Wp10Cancel:get_field("_Pre_INSECT_ORDER")
     local _INSECT_ORDER = Wp10Cancel:get_field("_INSECT_ORDER")
     local _Pre_CHARGE = Wp10Cancel:get_field("_Pre_CHARGE")
@@ -125,6 +127,10 @@ local function preHook(args)
         Wp10Cancel:set_field("_BATON_MARKING", ground)
         Wp10Cancel:set_field("_Pre_AIM_ATTACK", ground_pre)
         Wp10Cancel:set_field("_AIM_ATTACK", ground)
+        Wp10Cancel:set_field("_Pre_INSECT_ORDER", ground_pre)
+        Wp10Cancel:set_field("_INSECT_ORDER", ground)
+        Wp10Cancel:set_field("_Pre_CHARGE", ground_pre)
+        Wp10Cancel:set_field("_CHARGE", ground)
     end
 
     if hunter then
@@ -157,8 +163,13 @@ local function preHook(args)
     if not config.ground_attacks then
         ground_mult = ground_mult and Wp10Cancel:get_field("_AIM_ATTACK")
     end
-    if config.move and (not in_charged_attack or _Pre_ATTACK_00_COMBO) then
-        Wp10Cancel:set_field("_All", _All or (ground_mult and ground_mult_prev and all_timer == 0))
+    if (not in_charged_attack or _Pre_ATTACK_00_COMBO) then
+        if config.move then
+            Wp10Cancel:set_field("_Move", _Move or (ground_mult and ground_mult_prev and all_timer == 0))
+        end
+        if config.all then
+            Wp10Cancel:set_field("_All", _All or (ground_mult and ground_mult_prev and all_timer == 0))
+        end
     end
 
     if ground_mult and not ground_mult_prev then
@@ -257,15 +268,40 @@ function(args)
         local args1 = sdk.to_managed_object(args[3])
         local args2 = sdk.to_managed_object(args[4])
         jump_ret = this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
-        return sdk.PreHookResult.SKIP_ORIGINAL
+        -- return sdk.PreHookResult.SKIP_ORIGINAL
     end
 end, 
 function(retval)
-    if config.infinite_air_dodge then
-        return sdk.to_ptr(jump_ret)
-    end
+    -- if config.infinite_air_dodge then
+    --     return sdk.to_ptr(jump_ret)
+    -- end
     return retval
 end)
+
+
+-- app.Wp10_Export.table_1b083206_ef21_5712_8dcc_3c7089611271 急袭突刺地面段
+-- app.Wp10_Export.table_e524853b_ed29_76d8_0a81_b2ec4486e05b 地面弱点攻击
+-- app.Wp10_Export.table_0b363fec_3adf_834f_5deb_724dfe5053ee 地面待机
+-- app.Wp10_Export.table_cacd937e_a1aa_29a5_81ff_58ba90f7517e 地面移动
+sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_1b083206_ef21_5712_8dcc_3c7089611271(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
+function(args)
+    if not config.ground_attacks then return end
+    local this = sdk.to_managed_object(args[2])
+    local args1 = sdk.to_managed_object(args[3])
+    local args2 = sdk.to_managed_object(args[4])
+
+    this:table_cacd937e_a1aa_29a5_81ff_58ba90f7517e(args1, args2)
+end, nil)
+
+sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_e524853b_ed29_76d8_0a81_b2ec4486e05b(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
+function(args)
+    if not config.ground_attacks then return end
+    local this = sdk.to_managed_object(args[2])
+    local args1 = sdk.to_managed_object(args[3])
+    local args2 = sdk.to_managed_object(args[4])
+
+    this:table_cacd937e_a1aa_29a5_81ff_58ba90f7517e(args1, args2)
+end, nil)
 
 -- skip entering the kinsect catch animation
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)"), 
@@ -314,8 +350,9 @@ re.on_draw_ui(function()
     local changed, any_changed = false, false
 
     if imgui.tree_node("Insect Glaive Better Cancel") then
+        -- changed, config.all = imgui.checkbox("All", config.all)
         changed, config.move = imgui.checkbox("Move", config.move)
-        if config.move then
+        if config.move or config.all then
             changed, config.move_delay = imgui.slider_int("Move Delay", config.move_delay, 0, 120)
         end
         changed, config.dodge = imgui.checkbox("Dodge", config.dodge)
