@@ -47,15 +47,16 @@ local in_charged_attack = false
 local in_catch_kinsect = false
 
 -- hook to get global variables
-sdk.hook(sdk.find_type_definition("app.Wp10Insect"):get_method("update"), 
+sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("doUpdateBegin"), 
 function(args)
-    local this_Wp10Insect = sdk.to_managed_object(args[2])
-    if not this_Wp10Insect then return end
-    local this_hunter = this_Wp10Insect:get_Hunter()
+    local this_hunter = sdk.to_managed_object(args[2])
     if not this_hunter then return end
-    if this_hunter:get_IsMaster() then
+    if not this_hunter:get_type_definition():is_a("app.HunterCharacter") then return end
+    if this_hunter:get_IsMaster() and this_hunter:get_IsUserControl() then
         hunter = this_hunter
-        Wp10Insect = this_Wp10Insect
+        -- log.debug("Hunter: " .. string.format("%x", hunter:get_address()))
+        Wp10Insect = hunter:get_Wp10Insect()
+        -- log.debug("Wp10Insect: " .. string.format("%x", Wp10Insect:get_address()))
     end
 end, nil)
 
