@@ -281,9 +281,9 @@ function(args)
     local action_id = args[4]
     local category = sdk.get_native_field(action_id, action_id_type, "_Category")
     local index = sdk.get_native_field(action_id, action_id_type, "_Index")
-    log.debug("changeActionRequest called with:")
-    log.debug("Layer: " .. tostring(layer))
-    log.debug("Action ID: " .. tostring(category) .. ":" .. tostring(index)) 
+    -- log.debug("changeActionRequest called with:")
+    -- log.debug("Layer: " .. tostring(layer))
+    -- log.debug("Action ID: " .. tostring(category) .. ":" .. tostring(index)) 
     if config.skip_kinsect_catch then
         if category == 2 and index == 2 then
             return sdk.PreHookResult.SKIP_ORIGINAL
