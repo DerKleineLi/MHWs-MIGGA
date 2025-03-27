@@ -37,6 +37,11 @@ function(args)
 
     in_set_extra_stock = true
     skip_color = -1
+    local is_aim_attack_tripple_extra_get = Wp10Insect.IsAimAttackTrippleExtraGet
+    -- log.debug("is_aim_attack_tripple_extra_get: " .. tostring(is_aim_attack_tripple_extra_get))
+    if is_aim_attack_tripple_extra_get then
+        Wp10Insect:setExtract(true, true, true, true)
+    end
 
     local new_extra = sdk.to_int64(args[3])
     local extra_stock_num = Wp10Insect._ExtraStockNum
@@ -69,6 +74,10 @@ function(args)
     -- log.debug("new_count: " .. tostring(new_count))
     -- log.debug("color_counts: " .. tostring(color_counts[0]) .. " " .. tostring(color_counts[1]) .. " " .. tostring(color_counts[2]) .. " " .. tostring(color_counts[3]))
 
+    if is_aim_attack_tripple_extra_get then
+        skip_color = 3 -- skip green
+        return
+    end
     if new_count <= extra_stock_num then
         return
     end
@@ -88,6 +97,7 @@ sdk.hook(sdk.find_type_definition("ace.cFixedRingBuffer`1<System.Int32>"):get_me
 function(args)
     if not config.enabled then return end
     if not in_set_extra_stock then return end
+    -- log.debug("skip_color: " .. tostring(skip_color))
     if skip_color == -1 then return end
 
     local value = args[3]
