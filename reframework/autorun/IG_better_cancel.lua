@@ -129,8 +129,8 @@ local function preHook(args)
         Wp10Cancel:set_field("_AIM_ATTACK", ground)
         Wp10Cancel:set_field("_Pre_INSECT_ORDER", ground_pre)
         Wp10Cancel:set_field("_INSECT_ORDER", ground)
-        Wp10Cancel:set_field("_Pre_CHARGE", ground_pre)
-        Wp10Cancel:set_field("_CHARGE", ground)
+        Wp10Cancel:set_field("_Pre_CHARGE", _Pre_CHARGE or ground_pre)
+        Wp10Cancel:set_field("_CHARGE", _CHARGE or ground)
     end
 
     if hunter then
