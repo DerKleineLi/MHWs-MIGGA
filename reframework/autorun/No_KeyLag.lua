@@ -120,6 +120,10 @@ re.on_draw_ui(function()
                             any_changed = true
                         end
                     end
+                    if imgui.button("Reset") then
+                        config.wps[weapon_idx] = default_wps()[weapon_idx]
+                        any_changed = true
+                    end
                     imgui.tree_pop()
                 end
             end
