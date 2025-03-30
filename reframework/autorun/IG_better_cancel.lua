@@ -42,7 +42,7 @@ local all_timer = 0
 
 local Wp10Insect = nil
 local hunter = nil
-local landed = true
+local stand_state = 0
 local free_in_air = false -- if it's possible to cancel with air attack
 local in_charged_attack = false
 local in_catch_kinsect = false
@@ -134,9 +134,9 @@ local function preHook(args)
     end
 
     if hunter then
-        landed = hunter:get_Landed()
+        stand_state = hunter:get_StandState()
     end
-    if not landed and config.air then
+    if stand_state == 1 and config.air then
         Wp10Cancel:set_field("_Pre_AIR_ATTACK", air_pre)
         Wp10Cancel:set_field("_AIR_ATTACK", air)
         Wp10Cancel:set_field("_Pre_AIR_DODGE", air_pre)
@@ -186,12 +186,13 @@ end
 sdk.hook(sdk.find_type_definition("app.motion_track.Wp10Cancel"):get_method("myFlagsToCancelFlags"), preHook, nil)
 
 -- app.Wp10_Export.table_e524853b_ed29_76d8_0a81_b2ec4486e05b 地面弱点
--- app.Wp10_Export.table_fdc831e9_0152_308f_acd9_64514e5c9253 空中自由
+-- app.Wp10_Export.table_fdc831e9_0152_308f_acd9_64514e5c9253 起跳
 -- app.Wp10_Export.table_408e9d28_58f6_e73a_1dd1_1614a6f59514 空中回避
 -- app.Wp10_Export.table_036c6092_4a8e_d645_6d04_760f82ba9a36 空中舞踏
 -- app.Wp10_Export.table_dca14e16_fa0d_4740_b396_0a7b7bb32b81 always
 -- app.Wp10_Export.table_20641528_9e20_1435_0ec8_55a0c62400fc 空中攻击
 -- app.Wp10_Export.table_89935cf4_70c4_9247_e539_05c62677527a 蓄力攻击
+-- app.Wp10_Export.table_413fc014_8b7d_9aa9_dc32_8ae7c215f284 爬墙
 
 -- global vars
 local this = nil
@@ -202,15 +203,16 @@ local step_called = false
 local dodge_called = false
 local attack_called = false
 local charged_attack_called = false
+local climb_called = false
 local jump_ret = nil
 
 -- hook the root function, call jump function manually
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_dca14e16_fa0d_4740_b396_0a7b7bb32b81(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
     if hunter then
-        landed = hunter:get_Landed()
+        stand_state = hunter:get_StandState()
     end
-    if not landed then
+    if stand_state == 1 then
         this = sdk.to_managed_object(args[2])
         args1 = sdk.to_managed_object(args[3])
         args2 = sdk.to_managed_object(args[4])
@@ -219,7 +221,7 @@ end, function(retval)
     if config.air_imba then
         attack_called = false
     end
-    local manual_call = not jump_called and not step_called and not dodge_called and not attack_called and not landed and config.air_motion_after_aim_attack
+    local manual_call = not jump_called and not step_called and not dodge_called and not attack_called and not climb_called and stand_state == 1 and config.air_motion_after_aim_attack
     if manual_call then
         jump_ret = this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
     end
@@ -231,6 +233,7 @@ end, function(retval)
     dodge_called = false
     attack_called = false
     charged_attack_called = false
+    climb_called = false
     if manual_call then
         return sdk.to_ptr(jump_ret)
     end
@@ -257,6 +260,11 @@ end, nil)
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_89935cf4_70c4_9247_e539_05c62677527a(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
     charged_attack_called = true
+end, nil)
+
+sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_413fc014_8b7d_9aa9_dc32_8ae7c215f284(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
+function(args)
+    climb_called = true
 end, nil)
 
 -- call the jump function manually to allow continous air dodge
