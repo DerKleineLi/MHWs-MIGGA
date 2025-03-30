@@ -22,6 +22,7 @@ local config = {
     air_imba = false,
     infinite_air_dodge = false,
     air_motion_after_aim_attack = true,
+    air_motion_on_wall = false,
     always_recall_kinsect = true,
     skip_kinsect_catch = true,
     skip_stand_up = false
@@ -135,6 +136,12 @@ local function preHook(args)
 
     if hunter then
         stand_state = hunter:get_StandState()
+        if hunter:get_Landed() then
+            stand_state = 0
+        end
+        -- log.debug("hunter: " .. string.format("%x", hunter:get_address()))
+        -- log.debug("Stand State: " .. tostring(hunter:get_StandState()))
+        -- log.debug("Landed: " .. tostring(hunter:get_Landed()))
     end
     if stand_state == 1 and config.air then
         Wp10Cancel:set_field("_Pre_AIR_ATTACK", air_pre)
@@ -193,6 +200,7 @@ sdk.hook(sdk.find_type_definition("app.motion_track.Wp10Cancel"):get_method("myF
 -- app.Wp10_Export.table_20641528_9e20_1435_0ec8_55a0c62400fc 空中攻击
 -- app.Wp10_Export.table_89935cf4_70c4_9247_e539_05c62677527a 蓄力攻击
 -- app.Wp10_Export.table_413fc014_8b7d_9aa9_dc32_8ae7c215f284 爬墙
+-- app.Wp10_Export.table_23dc9570_d89a_704d_c7e6_6b5aa4cdbab4 在墙上
 
 -- global vars
 local this = nil
@@ -211,6 +219,9 @@ sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_dca14e16_
 function(args)
     if hunter then
         stand_state = hunter:get_StandState()
+        if hunter:get_Landed() then
+            stand_state = 0
+        end
     end
     if stand_state == 1 then
         this = sdk.to_managed_object(args[2])
@@ -222,6 +233,7 @@ end, function(retval)
         attack_called = false
     end
     local manual_call = not jump_called and not step_called and not dodge_called and not attack_called and not climb_called and stand_state == 1 and config.air_motion_after_aim_attack
+    manual_call = manual_call or (stand_state == 2 and config.air_motion_on_wall)
     if manual_call then
         jump_ret = this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
     end
@@ -283,6 +295,24 @@ function(retval)
     -- if config.infinite_air_dodge then
     --     return sdk.to_ptr(jump_ret)
     -- end
+    return retval
+end)
+
+sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_23dc9570_d89a_704d_c7e6_6b5aa4cdbab4(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
+function(args)
+    if not config.air_motion_on_wall then return end
+    local this = sdk.to_managed_object(args[2])
+    local args1 = sdk.to_managed_object(args[3])
+    local args2 = sdk.to_managed_object(args[4])
+    if not this or not args1 or not args2 then return end
+
+    jump_ret = this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
+    return sdk.PreHookResult.SKIP_ORIGINAL
+end, 
+function(retval)
+    if config.air_motion_on_wall then
+        return sdk.to_ptr(jump_ret)
+    end
     return retval
 end)
 
@@ -372,6 +402,7 @@ re.on_draw_ui(function()
         end
         changed, config.infinite_air_dodge = imgui.checkbox("Infinite Air Dodge", config.infinite_air_dodge)
         changed, config.air_motion_after_aim_attack = imgui.checkbox("Air Motion After Aim Attack", config.air_motion_after_aim_attack)
+        changed, config.air_motion_on_wall = imgui.checkbox("Air Motion On Wall", config.air_motion_on_wall)
         changed, config.always_recall_kinsect = imgui.checkbox("Always Recall Kinsect", config.always_recall_kinsect)
         changed, config.skip_kinsect_catch = imgui.checkbox("Skip Kinsect Catch", config.skip_kinsect_catch)
         changed, config.skip_stand_up = imgui.checkbox("Skip Stand Up", config.skip_stand_up)
