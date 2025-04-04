@@ -26,7 +26,7 @@ merge_tables(config, saved_config)
 
 re.on_config_save(
     function()
-        json.dump_file("IG_better_cancel.json", config)
+        json.dump_file("IG_rockstedy_offset.json", config)
     end
 )
 
