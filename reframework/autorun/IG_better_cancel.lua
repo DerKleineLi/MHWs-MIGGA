@@ -44,9 +44,7 @@ local all_timer = 0
 local Wp10Insect = nil
 local hunter = nil
 local stand_state = 0
-local free_in_air = false -- if it's possible to cancel with air attack
 local in_charged_attack = false
-local in_catch_kinsect = false
 
 -- hook to get global variables
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("doUpdateBegin"), 
@@ -174,9 +172,9 @@ local function preHook(args)
         if config.move then
             Wp10Cancel:set_field("_Move", _Move or (ground_mult and ground_mult_prev and all_timer == 0))
         end
-        if config.all then
-            Wp10Cancel:set_field("_All", _All or (ground_mult and ground_mult_prev and all_timer == 0))
-        end
+        -- if config.all then
+        --     Wp10Cancel:set_field("_All", _All or (ground_mult and ground_mult_prev and all_timer == 0))
+        -- end
     end
 
     if ground_mult and not ground_mult_prev then
@@ -187,7 +185,6 @@ local function preHook(args)
     end
     
     ground_mult_prev = ground_mult
-    free_in_air = Wp10Cancel:get_field("_AIR_ATTACK")
 end
 
 sdk.hook(sdk.find_type_definition("app.motion_track.Wp10Cancel"):get_method("myFlagsToCancelFlags"), preHook, nil)
@@ -206,13 +203,49 @@ sdk.hook(sdk.find_type_definition("app.motion_track.Wp10Cancel"):get_method("myF
 local this = nil
 local args1 = nil
 local args2 = nil
-local jump_called = false
-local step_called = false
-local dodge_called = false
-local attack_called = false
 local charged_attack_called = false
-local climb_called = false
-local jump_ret = nil
+local in_aim_attack = false
+
+-- app.Wp10Action.cAimAttack.doUpdate()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cAimAttack"):get_method("doUpdate"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
+    in_aim_attack = true
+    return
+end, nil)
+
+-- app.Wp10Action.cAimAttackHit.doUpdate()
+-- app.Wp10Action.cAimAttackHitAir.doUpdate()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cAimAttackHitAir"):get_method("doUpdate"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
+    in_aim_attack = true
+    return
+end, nil)
+
+-- app.Wp10Action.cHoldAttack.doUpdate()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cHoldAttack"):get_method("doUpdate"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    in_charged_attack = true
+    return
+end, nil)
+
 
 -- hook the root function, call jump function manually
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_dca14e16_fa0d_4740_b396_0a7b7bb32b81(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
@@ -223,81 +256,43 @@ function(args)
             stand_state = 0
         end
     end
-    if stand_state == 1 then
-        this = sdk.to_managed_object(args[2])
-        args1 = sdk.to_managed_object(args[3])
-        args2 = sdk.to_managed_object(args[4])
+    local manual_call = stand_state == 1 and config.air_imba
+    manual_call = manual_call or (stand_state == 1 and in_aim_attack and config.air_motion_after_aim_attack)
+    -- manual_call = manual_call or (stand_state == 2 and config.air_motion_on_wall)
+    if manual_call then
+        local this = sdk.to_managed_object(args[2])
+        local args1 = sdk.to_managed_object(args[3])
+        local args2 = sdk.to_managed_object(args[4])
+        if not this or not args1 or not args2 then return end
+        this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
     end
 end, function(retval)
-    if config.air_imba then
-        attack_called = false
-    end
-    local manual_call = not jump_called and not step_called and not dodge_called and not attack_called and not climb_called and stand_state == 1 and config.air_motion_after_aim_attack
-    manual_call = manual_call or (stand_state == 2 and config.air_motion_on_wall)
-    if manual_call then
-        jump_ret = this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
-    end
-
     in_charged_attack = charged_attack_called
 
-    jump_called = false
-    step_called = false
-    dodge_called = false
-    attack_called = false
     charged_attack_called = false
-    climb_called = false
-    if manual_call then
-        return sdk.to_ptr(jump_ret)
-    end
+    in_aim_attack = false
 
     return retval
 end)
 
 -- when these functions are called, set the corresponding flag and do nothing
-sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_fdc831e9_0152_308f_acd9_64514e5c9253(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
-function(args)
-    jump_called = true
-end, nil)
-
-sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_036c6092_4a8e_d645_6d04_760f82ba9a36(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
-function(args)
-    step_called = true
-end, nil)
-
-sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_20641528_9e20_1435_0ec8_55a0c62400fc(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
-function(args)
-    attack_called = true
-end, nil)
-
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_89935cf4_70c4_9247_e539_05c62677527a(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
     charged_attack_called = true
 end, nil)
 
-sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_413fc014_8b7d_9aa9_dc32_8ae7c215f284(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
-function(args)
-    climb_called = true
-end, nil)
-
 -- call the jump function manually to allow continous air dodge
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_408e9d28_58f6_e73a_1dd1_1614a6f59514(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
-    dodge_called = true
     if config.infinite_air_dodge then
         local this = sdk.to_managed_object(args[2])
         local args1 = sdk.to_managed_object(args[3])
         local args2 = sdk.to_managed_object(args[4])
-        jump_ret = this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
-        -- return sdk.PreHookResult.SKIP_ORIGINAL
+        this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
     end
-end, 
-function(retval)
-    -- if config.infinite_air_dodge then
-    --     return sdk.to_ptr(jump_ret)
-    -- end
-    return retval
-end)
+end, nil)
 
+local jump_ret = nil
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_23dc9570_d89a_704d_c7e6_6b5aa4cdbab4(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
     if not config.air_motion_on_wall then return end
@@ -346,7 +341,7 @@ sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("changeActio
 function(args)
     local player = sdk.to_managed_object(args[2])
     if not player then return end
-    if not player:get_IsMaster() then return end
+    if not (player:get_IsMaster() and player:get_IsUserControl()) then return end
     local weapon_type = player:get_WeaponType()
     if weapon_type ~= 10 then return end
 

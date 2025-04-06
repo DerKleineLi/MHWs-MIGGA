@@ -31,6 +31,12 @@ merge_tables(config, saved_config)
 local in_hold_attack = false
 sdk.hook(sdk.find_type_definition("app.Wp10Action.cHoldAttackSuper"):get_method("doUpdate()"),
 function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
     in_hold_attack = true
 end, function(retval)
     in_hold_attack = false
@@ -41,6 +47,12 @@ end)
 local in_baton_up_slash = false
 sdk.hook(sdk.find_type_definition("app.Wp10Action.cBatonUpSlashSuper"):get_method("doEnter()"),
 function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
     in_baton_up_slash = true
 end, function(retval)
     in_baton_up_slash = false
@@ -61,6 +73,12 @@ end)
 local in_aim_attack = false
 sdk.hook(sdk.find_type_definition("app.Wp10Action.cAimAttack"):get_method("doEnter()"),
 function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
     in_aim_attack = true
 end, function(retval)
     in_aim_attack = false
@@ -71,6 +89,12 @@ end)
 local in_aim_attack_update = false
 sdk.hook(sdk.find_type_definition("app.Wp10InsectAction.cAimAttack"):get_method("update"),
 function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
     in_aim_attack_update = true
 end, function(retval)
     in_aim_attack_update = false
@@ -81,6 +105,12 @@ end)
 local in_baton_s_slash = false
 sdk.hook(sdk.find_type_definition("app.Wp10Action.cBatonSSlash"):get_method("doEnter()"),
 function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
     in_baton_s_slash = true
 end, function(retval)
     in_baton_s_slash = false
@@ -113,8 +143,13 @@ function(args)
     local index = sdk.get_native_field(action_id, sdk.find_type_definition("ace.ACTION_ID"), "_Index")
     -- log.debug("category: " .. category .. ", index: " .. index)
     if category == 0 and index == 17 then
-        if in_hold_attack and ((config.charged_attack_is_tripple and is_tripple_up) or (config.charged_attack_not_tripple and not is_tripple_up)) then
-            return sdk.PreHookResult.SKIP_ORIGINAL
+        if in_hold_attack then
+            local should_skip = config.charged_attack_is_tripple and is_tripple_up
+            -- should_skip = should_skip or (config.charged_attack_not_tripple and not is_tripple_up)
+            if should_skip then
+                return sdk.PreHookResult.SKIP_ORIGINAL
+            end
+            
         end
         if in_baton_up_slash and config.helicopter then
             return sdk.PreHookResult.SKIP_ORIGINAL
@@ -158,7 +193,7 @@ re.on_draw_ui(function()
         changed, config.auto_back_time = imgui.drag_float("Auto Back Time", config.auto_back_time, 0.1, 0, 200, "%.2f")
         imgui.text("Default: 3.0; Set to 200.0 to disable auto back")
         changed, config.charged_attack_is_tripple = imgui.checkbox("Charged Attack in Tripple Up", config.charged_attack_is_tripple)
-        changed, config.charged_attack_not_tripple = imgui.checkbox("Charged Attack not Tripple Up", config.charged_attack_not_tripple)
+        -- changed, config.charged_attack_not_tripple = imgui.checkbox("Charged Attack not Tripple Up", config.charged_attack_not_tripple)
         changed, config.helicopter = imgui.checkbox("Helicopter", config.helicopter)
         changed, config.aim_attack_start_is_tripple = imgui.checkbox("Aim Attack Start in Tripple Up", config.aim_attack_start_is_tripple)
         changed, config.aim_attack_start_not_tripple = imgui.checkbox("Aim Attack Start not Tripple Up", config.aim_attack_start_not_tripple)

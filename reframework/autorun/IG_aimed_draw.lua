@@ -21,6 +21,12 @@ merge_tables(config, saved_config)
 local in_doEnter = false
 sdk.hook(sdk.find_type_definition("app.Wp10SubAction.cInsectAttack"):get_method("doEnter()"),
 function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
     in_doEnter = true
 end, function(retval)
     in_doEnter = false

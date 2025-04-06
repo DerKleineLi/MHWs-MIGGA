@@ -119,6 +119,12 @@ end, nil)
 -- app.Wp10Action.cHoldAttack.doUpdate
 sdk.hook(sdk.find_type_definition("app.Wp10Action.cHoldAttack"):get_method("doUpdate"),
 function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
     in_ground_weak_offset = true
     ground_weak_offset_timer = ground_weak_offset_timer + 1
     -- log.debug("ground_weak_offset_timer: " .. ground_weak_offset_timer)
