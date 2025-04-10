@@ -13,6 +13,7 @@ local saved_config = json.load_file("kinsect_smart_extracts.json") or {}
 
 local config = {
     enabled = true,
+    replace_green = 3,
 }
 
 merge_tables(config, saved_config)
@@ -28,22 +29,29 @@ local in_set_extra_stock = false
 local skip_color = -1
 sdk.hook(sdk.find_type_definition("app.Wp10Insect"):get_method("setExtraStock(app.Wp10Def.EXTRACT_TYPE, via.vec3)"),
 function(args)
-    if not config.enabled then return end
     local Wp10Insect = sdk.to_managed_object(args[2])
     if not Wp10Insect then return end
     -- log.debug("Wp10Insect: " .. string.format("%X", Wp10Insect:get_address()))
     local hunter = Wp10Insect:get_Hunter()
     if not hunter:get_IsMaster() then return end
 
-    in_set_extra_stock = true
+    local new_extra = sdk.to_int64(args[3])
+    if new_extra == 3 and config.replace_green >= 0 then
+        args[3] = sdk.to_ptr(config.replace_green)
+        new_extra = config.replace_green
+    end
+
     skip_color = -1
+    in_set_extra_stock = true
+
+    if not config.enabled then return end
+
     local is_aim_attack_tripple_extra_get = Wp10Insect.IsAimAttackTrippleExtraGet
     -- log.debug("is_aim_attack_tripple_extra_get: " .. tostring(is_aim_attack_tripple_extra_get))
     if is_aim_attack_tripple_extra_get then
         Wp10Insect:setExtract(true, true, true, true)
     end
 
-    local new_extra = sdk.to_int64(args[3])
     local extra_stock_num = Wp10Insect._ExtraStockNum
     local extra_stock = Wp10Insect:get_ExtraStock():get_elements()
     local pre0 = extra_stock[1].value__
@@ -95,16 +103,18 @@ end)
 
 sdk.hook(sdk.find_type_definition("ace.cFixedRingBuffer`1<System.Int32>"):get_method("pushBack(System.Int32)"),
 function(args)
-    if not config.enabled then return end
     if not in_set_extra_stock then return end
     -- log.debug("skip_color: " .. tostring(skip_color))
-    if skip_color == -1 then return end
+    if skip_color == -1 and config.replace_green ~= -1 then return end
 
     local value = args[3]
     local value_type = sdk.find_type_definition("System.Int32")
     local m_value = sdk.get_native_field(value, value_type, "m_value")
     if m_value == skip_color then
         skip_color = -1
+        return sdk.PreHookResult.SKIP_ORIGINAL
+    end
+    if m_value == 3 and config.replace_green == -1 then
         return sdk.PreHookResult.SKIP_ORIGINAL
     end
 end, nil)
@@ -115,6 +125,12 @@ re.on_draw_ui(function()
 
     if imgui.tree_node("Kinsect Smart Extracts") then
         changed, config.enabled = imgui.checkbox("Enabled", config.enabled)
+        any_changed = any_changed or changed
+
+        changed, config.replace_green = imgui.slider_int("Replace Green", config.replace_green, -1, 3)
+        any_changed = any_changed or changed
+
+        imgui.text("Replace Green: with -1: Nothing, 0: Red, 1: White, 2: Orange, 3: Green")
 
         imgui.tree_pop()
     end

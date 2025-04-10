@@ -91,7 +91,7 @@ sdk.hook(sdk.find_type_definition("app.Wp10InsectAction.cAimAttack"):get_method(
 function(args)
     local this = sdk.to_managed_object(args[2])
     if not this then return end
-    local this_hunter = this:get_Chara()
+    local this_hunter = this:get_Hunter()
     if not this_hunter then return end
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
     
