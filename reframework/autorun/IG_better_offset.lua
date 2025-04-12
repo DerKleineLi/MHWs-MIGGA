@@ -143,7 +143,7 @@ function(args)
 
     attack_data:add_ref_permanent()
     player_attack_param = attack_data
-    log.debug("HunterAttackData: " .. string.format("%X", player_attack_param:get_address()))
+    -- log.debug("HunterAttackData: " .. string.format("%X", player_attack_param:get_address()))
 end, nil)
 
 -- core
@@ -169,7 +169,7 @@ function(args)
     local hit_info = sdk.to_managed_object(args[3])
     local damage_owner = hit_info:get_field("<DamageOwner>k__BackingField")
     local damage_owner_name = damage_owner:get_Name()
-    log.debug("DamageOwner: " .. damage_owner_name)
+    -- log.debug("DamageOwner: " .. damage_owner_name)
     if damage_owner_name ~= "MasterPlayer" then return end
 
     -- local damage_data = hit_info:get_field("<DamageAttackData>k__BackingField")
