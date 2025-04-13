@@ -21,7 +21,7 @@ local config = {
     air = true,
     air_imba = false,
     infinite_air_dodge = false,
-    air_motion_after_aim_attack = true,
+    air_motion_after_air_focus_strike = true,
     air_motion_on_wall = false,
     always_recall_kinsect = true,
     skip_kinsect_catch = true,
@@ -148,10 +148,13 @@ local function preHook(args)
         Wp10Cancel:set_field("_AIR_DODGE", air)
         Wp10Cancel:set_field("_Pre_CHARGE", air_pre)
         Wp10Cancel:set_field("_CHARGE", air)
+        Wp10Cancel:set_field("_Pre_BATON_MARKING", air_pre)
+        Wp10Cancel:set_field("_BATON_MARKING", air)
         if config.air_imba then
             Wp10Cancel:set_field("_AIR_ATTACK", true)
             Wp10Cancel:set_field("_AIR_DODGE", true)
             Wp10Cancel:set_field("_CHARGE", true)
+            Wp10Cancel:set_field("_BATON_MARKING", true)
         end
     end
 
@@ -200,10 +203,8 @@ sdk.hook(sdk.find_type_definition("app.motion_track.Wp10Cancel"):get_method("myF
 -- app.Wp10_Export.table_23dc9570_d89a_704d_c7e6_6b5aa4cdbab4 在墙上
 
 -- global vars
-local this = nil
-local args1 = nil
-local args2 = nil
 local charged_attack_called = false
+local jump_called = false
 local in_aim_attack = false
 
 -- app.Wp10Action.cAimAttack.doUpdate()
@@ -248,6 +249,10 @@ end, nil)
 
 
 -- hook the root function, call jump function manually
+local root_this = nil
+local root_args1 = nil
+local root_args2 = nil
+local root_manual_call_jump = false
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_dca14e16_fa0d_4740_b396_0a7b7bb32b81(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
     if hunter then
@@ -256,20 +261,25 @@ function(args)
             stand_state = 0
         end
     end
-    local manual_call = stand_state == 1 and config.air_imba
-    manual_call = manual_call or (stand_state == 1 and in_aim_attack and config.air_motion_after_aim_attack)
-    -- manual_call = manual_call or (stand_state == 2 and config.air_motion_on_wall)
-    if manual_call then
-        local this = sdk.to_managed_object(args[2])
-        local args1 = sdk.to_managed_object(args[3])
-        local args2 = sdk.to_managed_object(args[4])
-        if not this or not args1 or not args2 then return end
-        this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
+    root_manual_call_jump = stand_state == 1 and config.air_imba
+    root_manual_call_jump = root_manual_call_jump or (stand_state == 1 and in_aim_attack and config.air_motion_after_air_focus_strike)
+    -- root_manual_call_jump = root_manual_call_jump or (stand_state == 2 and config.air_motion_on_wall)
+    if root_manual_call_jump then
+        root_this = sdk.to_managed_object(args[2])
+        root_args1 = sdk.to_managed_object(args[3])
+        root_args2 = sdk.to_managed_object(args[4])
     end
 end, function(retval)
+    root_manual_call_jump = root_manual_call_jump and not jump_called
+    root_manual_call_jump = root_manual_call_jump and root_this and root_args1 and root_args2
+    if root_manual_call_jump then
+        root_this:table_fdc831e9_0152_308f_acd9_64514e5c9253(root_args1, root_args2)
+    end
+
     in_charged_attack = charged_attack_called
 
     charged_attack_called = false
+    jump_called = false
     in_aim_attack = false
 
     return retval
@@ -281,18 +291,30 @@ function(args)
     charged_attack_called = true
 end, nil)
 
+sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_fdc831e9_0152_308f_acd9_64514e5c9253(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
+function(args)
+    jump_called = true
+end, nil)
+
 -- call the jump function manually to allow continous air dodge
+local ret4air_dodge = nil
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_408e9d28_58f6_e73a_1dd1_1614a6f59514(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
-    if config.infinite_air_dodge then
+    if config.infinite_air_dodge or config.air_imba then
         local this = sdk.to_managed_object(args[2])
         local args1 = sdk.to_managed_object(args[3])
         local args2 = sdk.to_managed_object(args[4])
-        this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
+        ret4air_dodge = this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
+        return sdk.PreHookResult.SKIP_ORIGINAL
     end
-end, nil)
+end, function(retval)
+    if config.infinite_air_dodge or config.air_imba then
+        return sdk.to_ptr(ret4air_dodge)
+    end
+    return retval
+end)
 
-local jump_ret = nil
+local ret4wall = nil
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_23dc9570_d89a_704d_c7e6_6b5aa4cdbab4(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
     if not config.air_motion_on_wall then return end
@@ -301,12 +323,12 @@ function(args)
     local args2 = sdk.to_managed_object(args[4])
     if not this or not args1 or not args2 then return end
 
-    jump_ret = this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
+    ret4wall = this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
     return sdk.PreHookResult.SKIP_ORIGINAL
 end, 
 function(retval)
     if config.air_motion_on_wall then
-        return sdk.to_ptr(jump_ret)
+        return sdk.to_ptr(ret4wall)
     end
     return retval
 end)
@@ -396,7 +418,7 @@ re.on_draw_ui(function()
             changed, config.air_imba = imgui.checkbox("Air Imba", config.air_imba)
         end
         changed, config.infinite_air_dodge = imgui.checkbox("Infinite Air Dodge", config.infinite_air_dodge)
-        changed, config.air_motion_after_aim_attack = imgui.checkbox("Air Motion After Aim Attack", config.air_motion_after_aim_attack)
+        changed, config.air_motion_after_air_focus_strike = imgui.checkbox("Air Motion After Air Focus Strike", config.air_motion_after_air_focus_strike)
         changed, config.air_motion_on_wall = imgui.checkbox("Air Motion On Wall", config.air_motion_on_wall)
         changed, config.always_recall_kinsect = imgui.checkbox("Always Recall Kinsect", config.always_recall_kinsect)
         changed, config.skip_kinsect_catch = imgui.checkbox("Skip Kinsect Catch", config.skip_kinsect_catch)
