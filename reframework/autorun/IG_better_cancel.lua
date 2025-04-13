@@ -302,6 +302,14 @@ function(args)
     jump_called = true
 end, nil)
 
+sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_036c6092_4a8e_d645_6d04_760f82ba9a36(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
+function(args)
+    if jump_called then
+        return sdk.PreHookResult.SKIP_ORIGINAL
+    end
+    jump_called = true
+end, nil)
+
 -- call the jump function manually to allow continous air dodge
 local ret4air_dodge = nil
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_408e9d28_58f6_e73a_1dd1_1614a6f59514(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
