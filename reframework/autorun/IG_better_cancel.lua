@@ -180,6 +180,9 @@ local function preHook(args)
         -- end
     end
 
+    -- -- debug
+    -- Wp10Cancel:set_field("_All", true)
+
     if ground_mult and not ground_mult_prev then
         all_timer = config.move_delay
     end
@@ -206,6 +209,7 @@ sdk.hook(sdk.find_type_definition("app.motion_track.Wp10Cancel"):get_method("myF
 local charged_attack_called = false
 local jump_called = false
 local in_aim_attack = false
+local ground_move_called = false
 
 -- app.Wp10Action.cAimAttack.doUpdate()
 sdk.hook(sdk.find_type_definition("app.Wp10Action.cAimAttack"):get_method("doUpdate"),
@@ -261,26 +265,25 @@ function(args)
             stand_state = 0
         end
     end
-    root_manual_call_jump = stand_state == 1 and config.air_imba
-    root_manual_call_jump = root_manual_call_jump or (stand_state == 1 and in_aim_attack and config.air_motion_after_air_focus_strike)
-    -- root_manual_call_jump = root_manual_call_jump or (stand_state == 2 and config.air_motion_on_wall)
-    if root_manual_call_jump then
-        root_this = sdk.to_managed_object(args[2])
-        root_args1 = sdk.to_managed_object(args[3])
-        root_args2 = sdk.to_managed_object(args[4])
+    local manual_call = stand_state == 1 and config.air_imba
+    manual_call = manual_call or (stand_state == 1 and in_aim_attack and config.air_motion_after_aim_attack)
+    -- -- debug
+    -- manual_call = true
+    -- manual_call = manual_call or (stand_state == 2 and config.air_motion_on_wall)
+    if manual_call then
+        local this = sdk.to_managed_object(args[2])
+        local args1 = sdk.to_managed_object(args[3])
+        local args2 = sdk.to_managed_object(args[4])
+        if not this or not args1 or not args2 then return end
+        this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
     end
 end, function(retval)
-    root_manual_call_jump = root_manual_call_jump and not jump_called
-    root_manual_call_jump = root_manual_call_jump and root_this and root_args1 and root_args2
-    if root_manual_call_jump then
-        root_this:table_fdc831e9_0152_308f_acd9_64514e5c9253(root_args1, root_args2)
-    end
-
     in_charged_attack = charged_attack_called
 
     charged_attack_called = false
     jump_called = false
     in_aim_attack = false
+    ground_move_called = false
 
     return retval
 end)
@@ -293,6 +296,9 @@ end, nil)
 
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_fdc831e9_0152_308f_acd9_64514e5c9253(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
+    if jump_called then
+        return sdk.PreHookResult.SKIP_ORIGINAL
+    end
     jump_called = true
 end, nil)
 
@@ -357,6 +363,16 @@ function(args)
 
     this:table_cacd937e_a1aa_29a5_81ff_58ba90f7517e(args1, args2)
 end, nil)
+
+sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_cacd937e_a1aa_29a5_81ff_58ba90f7517e(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
+function(args)
+    if ground_move_called then
+        return sdk.PreHookResult.SKIP_ORIGINAL
+    end
+    ground_move_called = true
+end, nil)
+
+
 
 -- skip entering the kinsect catch animation
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)"), 
