@@ -32,6 +32,7 @@ local config = {
         helicopter_start = 0,
         helicopter = 0,
         parry_damage = 90,
+        parry_all_attacks = false,
     },
 }
 
@@ -166,11 +167,19 @@ end, nil)
 -- app.EnemyCharacter.evHit_AttackPreProcess(app.HitInfo)
 sdk.hook(sdk.find_type_definition("app.EnemyCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"),
 function(args)
+    if not player_attack_param then return end
     local hit_info = sdk.to_managed_object(args[3])
+    if not hit_info then return end
     local damage_owner = hit_info:get_field("<DamageOwner>k__BackingField")
     local damage_owner_name = damage_owner:get_Name()
     -- log.debug("DamageOwner: " .. damage_owner_name)
     if damage_owner_name ~= "MasterPlayer" then return end
+
+    local attack_data = hit_info:get_field("<AttackData>k__BackingField")
+    if not attack_data then return end
+    local is_parry_fix = attack_data:get_field("_IsParryFix")
+    
+    if not is_parry_fix and not config.parry.parry_all_attacks then return end
 
     -- local damage_data = hit_info:get_field("<DamageAttackData>k__BackingField")
     -- local parry_dmg = damage_data:get_field("_ParryDamage")
@@ -219,12 +228,17 @@ re.on_draw_ui(function()
             imgui.tree_pop()
         end
         if imgui.tree_node("Parry") then
-            imgui.text("Set the start and end frames to parry during each action. Set end frame to 0 to disable. Parry value is default to 90, which equals the game's value for fully charged attack.")
+            imgui.text("Parry value is default to 90, which equals the game's value for fully charged attack.")
+            changed, config.parry.parry_damage = imgui.drag_int("Parry Damage", config.parry.parry_damage, 1, 0, 200)
+            imgui.text("Enabling Parry All Attacks will make all attacks (including projectiles and non-body-attacks) parryable.")
+            changed, config.parry.parry_all_attacks = imgui.checkbox("Parry All Attacks", config.parry.parry_all_attacks)
+            imgui.text("Set the start and end frames to parry during each action. Set end frame to 0 to disable.")
             changed, config.parry.ground_offset_start, config.parry.ground_offset = two_rows("Ground Offset", config.parry.ground_offset_start, config.parry.ground_offset, "Start", "End", 0, 300)
             changed, config.parry.air_offset_air_start, config.parry.air_offset_air = two_rows("Air Offset in Air", config.parry.air_offset_air_start, config.parry.air_offset_air, "Start", "End", 0, 100)
             changed, config.parry.air_offset_ground_start, config.parry.air_offset_ground = two_rows("Air Offset on Ground", config.parry.air_offset_ground_start, config.parry.air_offset_ground, "Start", "End", 0, 200)
             changed, config.parry.helicopter_start, config.parry.helicopter = two_rows("Helicopter", config.parry.helicopter_start, config.parry.helicopter, "Start", "End", 0, 200)
-            changed, config.parry.parry_damage = imgui.drag_int("Parry Damage", config.parry.parry_damage, 1, 0, 200)
+            
+            
             imgui.tree_pop()
         end
         imgui.tree_pop()
