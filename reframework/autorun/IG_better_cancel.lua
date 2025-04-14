@@ -1,10 +1,15 @@
 -- config
 local function merge_tables(t1, t2)
+    if type(t1) ~= "table" or type(t2) ~= "table" then
+        return
+    end
     for k, v in pairs(t2) do
-        if type(v) == "table" and type(t1[k] or false) == "table" then
-            merge_tables(t1[k], v)
-        else
-            t1[k] = v
+        if t1[k] ~= nil then
+            if type(t1[k]) == "table" and type(v) == "table" then
+                merge_tables(t1[k], v)
+            else
+                t1[k] = v
+            end
         end
     end
 end
@@ -12,7 +17,6 @@ end
 local saved_config = json.load_file("IG_better_cancel.json") or {}
 
 local config = {
-    all = false,
     dodge = true,
     move = false,
     move_delay = 2,
@@ -20,15 +24,22 @@ local config = {
     ground_attacks = true,
     air = true,
     air_imba = false,
+    easier_stabbing_on_wall = false,
     infinite_air_dodge = false,
     air_motion_after_air_focus_strike = true,
+    air_motion_after_air_marking = true,
     air_motion_on_wall = false,
     always_recall_kinsect = true,
     skip_kinsect_catch = true,
-    skip_stand_up = false
+    skip_stand_up = false,
+    skip_land_up = false,
 }
 
 merge_tables(config, saved_config)
+
+config.air_motion_after_air_marking_frame = 42
+config.air_motion_after_air_shoot_marking_frame = 5
+config.air_motion_after_air_marking_pre_window = 30 
 
 re.on_config_save(
     function()
@@ -38,13 +49,21 @@ re.on_config_save(
 
 -- global vars
 -- delay the All movement cancel
-local ground_mult_prev = false
-local all_timer = 0
+local ground_mult_prev = false -- if all ground cancel avaliable in the last frame
+local all_timer = 0 -- frame timer for all ground cancel available
 
-local Wp10Insect = nil
-local hunter = nil
-local stand_state = 0
-local in_charged_attack = false
+local Wp10Insect = nil -- kinsect object
+local hunter = nil -- hunter object
+local stand_state = 0 -- 0: on ground, 1: in air, 2: on wall
+local in_charged_attack = false -- if in charged attack
+local in_wall_off = false -- if in wall jump off or wall slash off
+
+local in_air_marking = false -- if in air marking
+local in_air_shoot_marking = false -- if in ground weak offset
+local air_marking_timer = 0 -- frame timer for air marking
+local air_shoot_marking_timer = 0 -- frame timer for air shoot marking
+local force_all_cancel = false -- whether to force all cancel, used for air imba and air_motion_after_air_marking
+local force_all_pre_cancel = false
 
 -- hook to get global variables
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("doUpdateBegin"), 
@@ -67,6 +86,7 @@ function(args)
     if not Wp10Insect then return end
 
     insect_on_arm = Wp10Insect:get_field("<IsArmConst>k__BackingField")
+    -- log.debug("insect_on_arm: " .. tostring(insect_on_arm))
     Wp10Insect:set_field("<IsArmConst>k__BackingField", false)
 end, function(retval)
     if not config.always_recall_kinsect then return retval end
@@ -78,6 +98,9 @@ end)
 
 -- hook for better cancel
 local function preHook(args)
+    force_all_cancel = false
+    force_all_pre_cancel = false
+
     local Wp10Cancel = sdk.to_managed_object(args[2])
     if not Wp10Cancel then return end
 
@@ -141,22 +164,28 @@ local function preHook(args)
         -- log.debug("Stand State: " .. tostring(hunter:get_StandState()))
         -- log.debug("Landed: " .. tostring(hunter:get_Landed()))
     end
-    if stand_state == 1 and config.air then
-        Wp10Cancel:set_field("_Pre_AIR_ATTACK", air_pre)
-        Wp10Cancel:set_field("_AIR_ATTACK", air)
-        Wp10Cancel:set_field("_Pre_AIR_DODGE", air_pre)
-        Wp10Cancel:set_field("_AIR_DODGE", air)
-        Wp10Cancel:set_field("_Pre_CHARGE", air_pre)
-        Wp10Cancel:set_field("_CHARGE", air)
-        Wp10Cancel:set_field("_Pre_BATON_MARKING", air_pre)
-        Wp10Cancel:set_field("_BATON_MARKING", air)
+    if stand_state == 1 then
+        if config.infinite_air_dodge or config.air then
+            Wp10Cancel:set_field("_Pre_AIR_DODGE", air_pre)
+            Wp10Cancel:set_field("_AIR_DODGE", air)
+        end
+        if config.air then
+            Wp10Cancel:set_field("_Pre_AIR_ATTACK", air_pre)
+            Wp10Cancel:set_field("_AIR_ATTACK", air)
+            Wp10Cancel:set_field("_Pre_CHARGE", air_pre)
+            Wp10Cancel:set_field("_CHARGE", air)
+            Wp10Cancel:set_field("_Pre_BATON_MARKING", air_pre)
+            Wp10Cancel:set_field("_BATON_MARKING", air)
+        end
+        if config.easier_stabbing_on_wall then
+            Wp10Cancel:set_field("_StepUp", air)
+        end
         if config.air_imba then
-            Wp10Cancel:set_field("_AIR_ATTACK", true)
-            Wp10Cancel:set_field("_AIR_DODGE", true)
-            Wp10Cancel:set_field("_CHARGE", true)
-            Wp10Cancel:set_field("_BATON_MARKING", true)
+            force_all_cancel = true
         end
     end
+    
+    -- log.debug("force_all_cancel: " .. tostring(force_all_cancel))
 
     -- get new value of _All
     local new_ATTACK_00_COMBO = Wp10Cancel:get_field("_ATTACK_00_COMBO")
@@ -175,9 +204,6 @@ local function preHook(args)
         if config.move then
             Wp10Cancel:set_field("_Move", _Move or (ground_mult and ground_mult_prev and all_timer == 0))
         end
-        -- if config.all then
-        --     Wp10Cancel:set_field("_All", _All or (ground_mult and ground_mult_prev and all_timer == 0))
-        -- end
     end
 
     -- -- debug
@@ -204,12 +230,14 @@ sdk.hook(sdk.find_type_definition("app.motion_track.Wp10Cancel"):get_method("myF
 -- app.Wp10_Export.table_89935cf4_70c4_9247_e539_05c62677527a 蓄力攻击
 -- app.Wp10_Export.table_413fc014_8b7d_9aa9_dc32_8ae7c215f284 爬墙
 -- app.Wp10_Export.table_23dc9570_d89a_704d_c7e6_6b5aa4cdbab4 在墙上
+-- app.Wp10_Export.table_4ab168d7_8d3a_9356_0406_e676f77f9198 升虫
 
 -- global vars
 local charged_attack_called = false
-local jump_called = false
+local jump_called = false -- jump called or enemy step called or helicopter called
 local in_aim_attack = false
 local ground_move_called = false
+local wall_climb_called = false
 
 -- app.Wp10Action.cAimAttack.doUpdate()
 sdk.hook(sdk.find_type_definition("app.Wp10Action.cAimAttack"):get_method("doUpdate"),
@@ -251,6 +279,98 @@ function(args)
     return
 end, nil)
 
+-- app.Wp10Action.cGunShotAir.doUpdate()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cGunShotAir"):get_method("doUpdate"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
+    in_air_shoot_marking = true
+    air_shoot_marking_timer = air_shoot_marking_timer + 1
+    -- log.debug("air_shoot_marking_timer: " .. tostring(air_shoot_marking_timer))
+    force_all_cancel = force_all_cancel or (air_shoot_marking_timer > config.air_motion_after_air_shoot_marking_frame and config.air_motion_after_air_marking)
+    force_all_pre_cancel = (air_shoot_marking_timer + config.air_motion_after_air_marking_pre_window) > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking
+end, nil)
+
+-- app.Wp10Action.cGunShotAir.doEnter()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cGunShotAir"):get_method("doEnter"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    force_all_cancel = false or config.air_imba
+    force_all_pre_cancel = config.air_motion_after_air_marking_pre_window > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking
+    air_shoot_marking_timer = 0
+
+end, nil)
+
+-- app.Wp10Action.cBatonMarkingAir.doUpdate()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cBatonMarkingAir"):get_method("doUpdate"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    in_air_marking = true
+    air_marking_timer = air_marking_timer + 1
+    -- log.debug("air_marking_timer: " .. tostring(air_marking_timer))
+    force_all_cancel = force_all_cancel or (air_marking_timer > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking)
+    force_all_pre_cancel = (air_marking_timer + config.air_motion_after_air_marking_pre_window) > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking
+end, nil)
+
+-- app.Wp10Action.cBatonMarkingAir.doEnter()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cBatonMarkingAir"):get_method("doEnter"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    force_all_cancel = false or config.air_imba
+    force_all_pre_cancel = config.air_motion_after_air_marking_pre_window > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking
+    air_marking_timer = 0
+
+end, nil)
+
+-- app.Wp10Action.cWallGrabToJump.doUpdate()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cWallGrabToJump"):get_method("doUpdate"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    in_wall_off = true
+    force_all_cancel = in_wall_off and config.air_imba
+    stand_state = 1
+    return
+end, nil)
+
+-- app.Wp10Action.cWallDashToFallSlash.doUpdate()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cWallDashToFallSlash"):get_method("doUpdate"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    in_wall_off = true
+    force_all_cancel = in_wall_off and config.air_imba
+    stand_state = 1
+    return
+end, nil)
+
 
 -- hook the root function, call jump function manually
 local root_this = nil
@@ -259,31 +379,46 @@ local root_args2 = nil
 local root_manual_call_jump = false
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_dca14e16_fa0d_4740_b396_0a7b7bb32b81(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
-    if hunter then
-        stand_state = hunter:get_StandState()
-        if hunter:get_Landed() then
-            stand_state = 0
-        end
-    end
-    local manual_call = stand_state == 1 and config.air_imba
-    manual_call = manual_call or (stand_state == 1 and in_aim_attack and config.air_motion_after_aim_attack)
+    -- cache args for manual cancel function call
+    root_manual_call_jump = stand_state == 1 and config.air_imba
+    root_manual_call_jump = root_manual_call_jump or (stand_state == 1 and (in_air_marking or in_air_shoot_marking) and config.air_motion_after_air_marking)
+    root_manual_call_jump = root_manual_call_jump or (stand_state == 1 and in_aim_attack and config.air_motion_after_air_focus_strike)
     -- -- debug
     -- manual_call = true
     -- manual_call = manual_call or (stand_state == 2 and config.air_motion_on_wall)
-    if manual_call then
-        local this = sdk.to_managed_object(args[2])
-        local args1 = sdk.to_managed_object(args[3])
-        local args2 = sdk.to_managed_object(args[4])
-        if not this or not args1 or not args2 then return end
-        this:table_fdc831e9_0152_308f_acd9_64514e5c9253(args1, args2)
+    if root_manual_call_jump then
+        root_this = sdk.to_managed_object(args[2])
+        root_args1 = sdk.to_managed_object(args[3])
+        root_args2 = sdk.to_managed_object(args[4])
+        -- log.debug("root_this: " .. string.format("%x", root_this:get_address()))
+        -- log.debug("root_args1: " .. string.format("%x", root_args1:get_address()))
+        -- log.debug("root_args2: " .. string.format("%x", root_args2:get_address()))
     end
+
+    -- update timer
+    if not in_air_shoot_marking then
+        air_shoot_marking_timer = 0
+    end
+    if not in_air_marking then
+        air_marking_timer = 0
+    end
+
 end, function(retval)
+    root_manual_call_jump = root_manual_call_jump and not wall_climb_called
+    if root_manual_call_jump and root_this and root_args1 and root_args2 then
+        root_this:table_fdc831e9_0152_308f_acd9_64514e5c9253(root_args1, root_args2)
+    end
+
     in_charged_attack = charged_attack_called
+    in_aim_attack = false
+    in_wall_off = false
+    in_air_marking = false
+    in_air_shoot_marking = false
 
     charged_attack_called = false
     jump_called = false
-    in_aim_attack = false
     ground_move_called = false
+    wall_climb_called = false
 
     return retval
 end)
@@ -294,7 +429,20 @@ function(args)
     charged_attack_called = true
 end, nil)
 
+sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_413fc014_8b7d_9aa9_dc32_8ae7c215f284(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
+function(args)
+    wall_climb_called = true
+end, nil)
+
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_fdc831e9_0152_308f_acd9_64514e5c9253(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
+function(args)
+    if jump_called then
+        return sdk.PreHookResult.SKIP_ORIGINAL
+    end
+    jump_called = true
+end, nil)
+
+sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_4ab168d7_8d3a_9356_0406_e676f77f9198(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
     if jump_called then
         return sdk.PreHookResult.SKIP_ORIGINAL
@@ -352,6 +500,9 @@ end)
 -- app.Wp10_Export.table_e524853b_ed29_76d8_0a81_b2ec4486e05b 地面弱点攻击
 -- app.Wp10_Export.table_0b363fec_3adf_834f_5deb_724dfe5053ee 地面待机
 -- app.Wp10_Export.table_cacd937e_a1aa_29a5_81ff_58ba90f7517e 地面移动
+-- app.Wp10_Export.table_1177eec9_781a_39da_8736_a371471f5f56 landing
+-- app.Wp10_Export.table_938d81b9_3cf4_3210_450c_8f96146b5f33 move after landing
+
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_1b083206_ef21_5712_8dcc_3c7089611271(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
     if not config.ground_attacks then return end
@@ -379,8 +530,6 @@ function(args)
     end
     ground_move_called = true
 end, nil)
-
-
 
 -- skip entering the kinsect catch animation
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)"), 
@@ -422,31 +571,75 @@ function(args)
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
     end
+
+    if config.skip_land_up then
+        if category == 2 and index == 37 then
+            local ActionIDType = sdk.find_type_definition("ace.ACTION_ID")
+            local instance = ValueType.new(ActionIDType)
+            sdk.set_native_field(instance, ActionIDType, "_Category", 1)
+            sdk.set_native_field(instance, ActionIDType, "_Index", 15)
+            player:call("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)", 0, instance, true)
+            return sdk.PreHookResult.SKIP_ORIGINAL
+        end
+    end
+
 end, nil)
+
+-- app.motion_track.HunterCancelBase.isCancel(app.ACTION_CANCEL_INDEX)
+local isCancel_is_wp10 = false
+sdk.hook(sdk.find_type_definition("app.motion_track.Wp10Cancel"):get_method("isCancel(app.ACTION_CANCEL_INDEX)"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_type = this:get_type_definition()
+    isCancel_is_wp10 = this_type:is_a("app.motion_track.Wp10Cancel")
+end, function(retval)
+    if not isCancel_is_wp10 then return retval end
+    if force_all_cancel then
+        return sdk.to_ptr(true)
+    end
+    return retval
+end)
+
+-- app.motion_track.HunterCancelBase.isPreCancel(app.ACTION_CANCEL_INDEX)
+local isPreCancel_is_wp10 = false
+sdk.hook(sdk.find_type_definition("app.motion_track.Wp10Cancel"):get_method("isPreCancel(app.ACTION_CANCEL_INDEX)"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_type = this:get_type_definition()
+    isPreCancel_is_wp10 = this_type:is_a("app.motion_track.Wp10Cancel")
+end, function(retval)
+    if not isPreCancel_is_wp10 then return retval end
+    if force_all_pre_cancel then
+        return sdk.to_ptr(true)
+    end
+    return retval
+end)
 
 -- ui
 re.on_draw_ui(function()
     local changed, any_changed = false, false
 
     if imgui.tree_node("Insect Glaive Better Cancel") then
-        -- changed, config.all = imgui.checkbox("All", config.all)
         changed, config.move = imgui.checkbox("Move", config.move)
-        if config.move or config.all then
+        if config.move then
             changed, config.move_delay = imgui.slider_int("Move Delay", config.move_delay, 0, 120)
         end
         changed, config.dodge = imgui.checkbox("Dodge", config.dodge)
         changed, config.jump = imgui.checkbox("Jump", config.jump)
         changed, config.ground_attacks = imgui.checkbox("Ground Attacks", config.ground_attacks)
         changed, config.air = imgui.checkbox("Air", config.air)
-        if config.air then
-            changed, config.air_imba = imgui.checkbox("Air Imba", config.air_imba)
-        end
+        changed, config.air_imba = imgui.checkbox("Air Imba", config.air_imba)
+        changed, config.easier_stabbing_on_wall = imgui.checkbox("Easier Stabbing On Wall", config.easier_stabbing_on_wall)
         changed, config.infinite_air_dodge = imgui.checkbox("Infinite Air Dodge", config.infinite_air_dodge)
         changed, config.air_motion_after_air_focus_strike = imgui.checkbox("Air Motion After Air Focus Strike", config.air_motion_after_air_focus_strike)
+        changed, config.air_motion_after_air_marking = imgui.checkbox("Air Motion After Air Marking", config.air_motion_after_air_marking)
         changed, config.air_motion_on_wall = imgui.checkbox("Air Motion On Wall", config.air_motion_on_wall)
         changed, config.always_recall_kinsect = imgui.checkbox("Always Recall Kinsect", config.always_recall_kinsect)
         changed, config.skip_kinsect_catch = imgui.checkbox("Skip Kinsect Catch", config.skip_kinsect_catch)
-        changed, config.skip_stand_up = imgui.checkbox("Skip Stand Up", config.skip_stand_up)
+        changed, config.skip_stand_up = imgui.checkbox("Skip Smash Stand Up", config.skip_stand_up)
+        changed, config.skip_land_up = imgui.checkbox("Skip Land Stand Up", config.skip_land_up)
 
         imgui.tree_pop()
     end
