@@ -37,9 +37,10 @@ local config = {
 
 merge_tables(config, saved_config)
 
-config.air_motion_after_air_marking_frame = 42
-config.air_motion_after_air_shoot_marking_frame = 5
-config.air_motion_after_air_marking_pre_window = 30 
+config.air_motion_after_air_marking_time = 42 / 60
+config.air_motion_after_air_shoot_marking_time = 5 / 60
+config.air_motion_after_air_marking_pre_window = 30 / 60
+config.air_imba_wall_off_reserved_time = 0.05
 
 re.on_config_save(
     function()
@@ -57,13 +58,33 @@ local hunter = nil -- hunter object
 local stand_state = 0 -- 0: on ground, 1: in air, 2: on wall
 local in_charged_attack = false -- if in charged attack
 local in_wall_off = false -- if in wall jump off or wall slash off
+local wall_jump_start = 0 -- frame timer for wall jump off or wall slash off
+local in_fall = false -- if in fall
 
 local in_air_marking = false -- if in air marking
 local in_air_shoot_marking = false -- if in ground weak offset
-local air_marking_timer = 0 -- frame timer for air marking
-local air_shoot_marking_timer = 0 -- frame timer for air shoot marking
+local air_marking_start = 0 -- frame timer for air marking
+local air_shoot_marking_start = 0 -- frame timer for air shoot marking
 local force_all_cancel = false -- whether to force all cancel, used for air imba and air_motion_after_air_marking
 local force_all_pre_cancel = false
+
+re.on_frame(
+    function()
+        if hunter then
+            stand_state = hunter:get_StandState()
+            if hunter:get_Landed() then
+                stand_state = 0
+            end
+            if in_wall_off then
+                stand_state = 1
+            end
+            -- log.debug("hunter: " .. string.format("%x", hunter:get_address()))
+            -- log.debug("Stand State: " .. tostring(hunter:get_StandState()))
+            -- log.debug("Landed: " .. tostring(hunter:get_Landed()))
+            
+        end
+    end
+)
 
 -- hook to get global variables
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("doUpdateBegin"), 
@@ -155,15 +176,6 @@ local function preHook(args)
         Wp10Cancel:set_field("_CHARGE", _CHARGE or ground)
     end
 
-    if hunter then
-        stand_state = hunter:get_StandState()
-        if hunter:get_Landed() then
-            stand_state = 0
-        end
-        -- log.debug("hunter: " .. string.format("%x", hunter:get_address()))
-        -- log.debug("Stand State: " .. tostring(hunter:get_StandState()))
-        -- log.debug("Landed: " .. tostring(hunter:get_Landed()))
-    end
     if stand_state == 1 then
         if config.infinite_air_dodge or config.air then
             Wp10Cancel:set_field("_Pre_AIR_DODGE", air_pre)
@@ -289,10 +301,10 @@ function(args)
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
     
     in_air_shoot_marking = true
-    air_shoot_marking_timer = air_shoot_marking_timer + 1
+    air_shoot_marking_time = os.clock() - air_shoot_marking_start
     -- log.debug("air_shoot_marking_timer: " .. tostring(air_shoot_marking_timer))
-    force_all_cancel = force_all_cancel or (air_shoot_marking_timer > config.air_motion_after_air_shoot_marking_frame and config.air_motion_after_air_marking)
-    force_all_pre_cancel = (air_shoot_marking_timer + config.air_motion_after_air_marking_pre_window) > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking
+    force_all_cancel = config.air_imba or (air_shoot_marking_time > config.air_motion_after_air_shoot_marking_time and config.air_motion_after_air_marking)
+    force_all_pre_cancel = (air_shoot_marking_time + config.air_motion_after_air_marking_pre_window) > config.air_motion_after_air_shoot_marking_time and config.air_motion_after_air_marking
 end, nil)
 
 -- app.Wp10Action.cGunShotAir.doEnter()
@@ -304,9 +316,7 @@ function(args)
     if not this_hunter then return end
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
 
-    force_all_cancel = false or config.air_imba
-    force_all_pre_cancel = config.air_motion_after_air_marking_pre_window > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking
-    air_shoot_marking_timer = 0
+    air_shoot_marking_start = os.clock()
 
 end, nil)
 
@@ -320,10 +330,9 @@ function(args)
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
 
     in_air_marking = true
-    air_marking_timer = air_marking_timer + 1
-    -- log.debug("air_marking_timer: " .. tostring(air_marking_timer))
-    force_all_cancel = force_all_cancel or (air_marking_timer > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking)
-    force_all_pre_cancel = (air_marking_timer + config.air_motion_after_air_marking_pre_window) > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking
+    air_marking_time = os.clock() - air_marking_start
+    force_all_cancel = config.air_imba or (air_marking_time > config.air_motion_after_air_marking_time and config.air_motion_after_air_marking)
+    force_all_pre_cancel = (air_marking_time + config.air_motion_after_air_marking_pre_window) > config.air_motion_after_air_marking_time and config.air_motion_after_air_marking
 end, nil)
 
 -- app.Wp10Action.cBatonMarkingAir.doEnter()
@@ -335,9 +344,7 @@ function(args)
     if not this_hunter then return end
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
 
-    force_all_cancel = false or config.air_imba
-    force_all_pre_cancel = config.air_motion_after_air_marking_pre_window > config.air_motion_after_air_marking_frame and config.air_motion_after_air_marking
-    air_marking_timer = 0
+    air_marking_start = os.clock()
 
 end, nil)
 
@@ -351,8 +358,23 @@ function(args)
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
 
     in_wall_off = true
-    force_all_cancel = in_wall_off and config.air_imba
-    stand_state = 1
+
+    force_all_cancel = in_wall_off and config.air_imba and os.clock() - wall_jump_start > config.air_imba_wall_off_reserved_time
+    
+    return
+end, nil)
+
+-- app.Wp10Action.cWallGrabToJump.doEnter()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cWallGrabToJump"):get_method("doEnter"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    wall_jump_start = os.clock()
+
     return
 end, nil)
 
@@ -367,8 +389,19 @@ function(args)
 
     in_wall_off = true
     force_all_cancel = in_wall_off and config.air_imba
-    stand_state = 1
     return
+end, nil)
+
+-- app.Wp10Action.cFall.doUpdate()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cFall"):get_method("doUpdate"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    in_fall = true
 end, nil)
 
 
@@ -399,8 +432,9 @@ function(args)
     if not in_air_shoot_marking then
         air_shoot_marking_timer = 0
     end
-    if not in_air_marking then
-        air_marking_timer = 0
+
+    if in_fall then
+        jump_called = true -- make R2 available in fall by not calling replicated function
     end
 
 end, function(retval)
@@ -414,6 +448,7 @@ end, function(retval)
     in_wall_off = false
     in_air_marking = false
     in_air_shoot_marking = false
+    in_fall = false
 
     charged_attack_called = false
     jump_called = false
@@ -552,18 +587,19 @@ function(args)
 
     if skip_next_landing then
         skip_next_landing = false
-        if category == 2 and index == 36 then
+        if layer == 0 and category == 2 and index == 36 then
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
     end
 
     if config.skip_kinsect_catch then
-        if category == 2 and index == 2 then
+        if layer == 1 and category == 2 and index == 2 then
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
     end
+
     if config.skip_stand_up then
-        if category == 1 and index == 63 then
+        if layer == 0 and category == 1 and index == 63 then
             local ActionIDType = sdk.find_type_definition("ace.ACTION_ID")
             local instance = ValueType.new(ActionIDType)
             sdk.set_native_field(instance, ActionIDType, "_Category", 1)
@@ -571,7 +607,7 @@ function(args)
             player:call("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)", 0, instance, true)
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
-        if category == 1 and index == 61 then
+        if layer == 0 and category == 1 and index == 61 then
             local ActionIDType = sdk.find_type_definition("ace.ACTION_ID")
             local instance = ValueType.new(ActionIDType)
             sdk.set_native_field(instance, ActionIDType, "_Category", 1)
@@ -582,7 +618,7 @@ function(args)
     end
 
     if config.skip_land_up then
-        if category == 2 and index == 37 then
+        if layer == 0 and category == 2 and index == 37 then
             local ActionIDType = sdk.find_type_definition("ace.ACTION_ID")
             local instance = ValueType.new(ActionIDType)
             sdk.set_native_field(instance, ActionIDType, "_Category", 1)
@@ -592,9 +628,9 @@ function(args)
         end
     end
 
-    if config.air_imba then
-        if not (category == 2 and index == 36) then
-            skip_next_landing = true
+    if force_all_cancel then
+        if not (layer == 0 and category == 2 and index == 36) then
+            skip_next_landing = true -- prevents landing overwriting the ground part of the actions
         end
     end
 
