@@ -593,7 +593,9 @@ function(args)
     end
 
     if config.air_imba then
-        skip_next_landing = true
+        if not (category == 2 and index == 36) then
+            skip_next_landing = true
+        end
     end
 
 end, nil)
