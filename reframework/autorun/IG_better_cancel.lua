@@ -532,6 +532,7 @@ function(args)
 end, nil)
 
 -- skip entering the kinsect catch animation
+local skip_next_landing = false
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)"), 
 function(args)
     local player = sdk.to_managed_object(args[2])
@@ -548,6 +549,14 @@ function(args)
     -- log.debug("changeActionRequest called with:")
     -- log.debug("Layer: " .. tostring(layer))
     -- log.debug("Action ID: " .. tostring(category) .. ":" .. tostring(index)) 
+
+    if skip_next_landing then
+        skip_next_landing = false
+        if category == 2 and index == 36 then
+            return sdk.PreHookResult.SKIP_ORIGINAL
+        end
+    end
+
     if config.skip_kinsect_catch then
         if category == 2 and index == 2 then
             return sdk.PreHookResult.SKIP_ORIGINAL
@@ -581,6 +590,10 @@ function(args)
             player:call("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)", 0, instance, true)
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
+    end
+
+    if config.air_imba then
+        skip_next_landing = true
     end
 
 end, nil)
