@@ -196,9 +196,6 @@ local function preHook(args)
         end
         if config.air_imba then
             force_all_cancel = true
-            Wp10Cancel:set_field("_AIR_ATTACK", true)
-            Wp10Cancel:set_field("_AIR_DODGE", true)
-            Wp10Cancel:set_field("_CHARGE", true)
         end
     end
     
@@ -590,7 +587,7 @@ function(args)
     local index = sdk.get_native_field(action_id, action_id_type, "_Index")
     -- log.debug("changeActionRequest called with:")
     -- log.debug("Layer: " .. tostring(layer))
-    log.debug("Action ID: " .. tostring(category) .. ":" .. tostring(index)) 
+    -- log.debug("Action ID: " .. tostring(category) .. ":" .. tostring(index)) 
 
     if skip_next_landing then
         skip_next_landing = false
