@@ -68,6 +68,8 @@ local air_shoot_marking_start = 0 -- frame timer for air shoot marking
 local force_all_cancel = false -- whether to force all cancel, used for air imba and air_motion_after_air_marking
 local force_all_pre_cancel = false
 
+-- update stand state
+-- necessary to canceling wall jump
 re.on_frame(
     function()
         if hunter then
@@ -194,6 +196,9 @@ local function preHook(args)
         end
         if config.air_imba then
             force_all_cancel = true
+            Wp10Cancel:set_field("_AIR_ATTACK", true)
+            Wp10Cancel:set_field("_AIR_DODGE", true)
+            Wp10Cancel:set_field("_CHARGE", true)
         end
     end
     
@@ -217,9 +222,6 @@ local function preHook(args)
             Wp10Cancel:set_field("_Move", _Move or (ground_mult and ground_mult_prev and all_timer == 0))
         end
     end
-
-    -- -- debug
-    -- Wp10Cancel:set_field("_All", true)
 
     if ground_mult and not ground_mult_prev then
         all_timer = config.move_delay
@@ -302,7 +304,6 @@ function(args)
     
     in_air_shoot_marking = true
     air_shoot_marking_time = os.clock() - air_shoot_marking_start
-    -- log.debug("air_shoot_marking_timer: " .. tostring(air_shoot_marking_timer))
     force_all_cancel = config.air_imba or (air_shoot_marking_time > config.air_motion_after_air_shoot_marking_time and config.air_motion_after_air_marking)
     force_all_pre_cancel = (air_shoot_marking_time + config.air_motion_after_air_marking_pre_window) > config.air_motion_after_air_shoot_marking_time and config.air_motion_after_air_marking
 end, nil)
@@ -412,13 +413,24 @@ local root_args2 = nil
 local root_manual_call_jump = false
 sdk.hook(sdk.find_type_definition("app.Wp10_Export"):get_method("table_dca14e16_fa0d_4740_b396_0a7b7bb32b81(ace.btable.cCommandWork, ace.btable.cOperatorWork)"),
 function(args)
+    -- update stand state
+    -- necessary to cancel wall slash
+    if hunter then
+        stand_state = hunter:get_StandState()
+        if hunter:get_Landed() then
+            stand_state = 0
+        end
+        if in_wall_off then
+            stand_state = 1
+        end
+        -- log.debug("hunter: " .. string.format("%x", hunter:get_address()))
+        -- log.debug("Stand State: " .. tostring(hunter:get_StandState()))
+        -- log.debug("Landed: " .. tostring(hunter:get_Landed()))
+    end
     -- cache args for manual cancel function call
     root_manual_call_jump = stand_state == 1 and config.air_imba
     root_manual_call_jump = root_manual_call_jump or (stand_state == 1 and (in_air_marking or in_air_shoot_marking) and config.air_motion_after_air_marking)
     root_manual_call_jump = root_manual_call_jump or (stand_state == 1 and in_aim_attack and config.air_motion_after_air_focus_strike)
-    -- -- debug
-    -- manual_call = true
-    -- manual_call = manual_call or (stand_state == 2 and config.air_motion_on_wall)
     if root_manual_call_jump then
         root_this = sdk.to_managed_object(args[2])
         root_args1 = sdk.to_managed_object(args[3])
@@ -426,11 +438,6 @@ function(args)
         -- log.debug("root_this: " .. string.format("%x", root_this:get_address()))
         -- log.debug("root_args1: " .. string.format("%x", root_args1:get_address()))
         -- log.debug("root_args2: " .. string.format("%x", root_args2:get_address()))
-    end
-
-    -- update timer
-    if not in_air_shoot_marking then
-        air_shoot_marking_timer = 0
     end
 
     if in_fall then
@@ -583,7 +590,7 @@ function(args)
     local index = sdk.get_native_field(action_id, action_id_type, "_Index")
     -- log.debug("changeActionRequest called with:")
     -- log.debug("Layer: " .. tostring(layer))
-    -- log.debug("Action ID: " .. tostring(category) .. ":" .. tostring(index)) 
+    log.debug("Action ID: " .. tostring(category) .. ":" .. tostring(index)) 
 
     if skip_next_landing then
         skip_next_landing = false
