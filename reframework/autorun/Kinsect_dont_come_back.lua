@@ -22,9 +22,61 @@ local config = {
     aim_attack_end_not_tripple = false,
     wide_sweep_is_tripple = true,
     wide_sweep_not_tripple = false,
+    item_button_recall = true,
 }
 
 merge_tables(config, saved_config)
+
+-- helper functions
+local function get_input()
+    local player_manager = sdk.get_managed_singleton("app.PlayerManager")
+    if not player_manager then return nil end
+    local player_info = player_manager:getMasterPlayer()
+    if not player_info then return nil end
+    local hunter_controller = player_info:get_Controller()
+    if not hunter_controller then return nil end
+    local hunter_controller_entity_holder = hunter_controller:get_ControllerEntityHolder()
+    if not hunter_controller_entity_holder then return nil end
+    local master_player_controler_entity = hunter_controller_entity_holder:get_Master()
+    if not master_player_controler_entity then return nil end
+    local command_controller = master_player_controler_entity:get_CommandController()
+    if not command_controller then return nil end
+    local player_game_input_base = command_controller:get_MergedVirtualInput()
+    return player_game_input_base
+end
+
+local function get_hunter()
+    local player_manager = sdk.get_managed_singleton("app.PlayerManager")
+    if not player_manager then return nil end
+    local player_info = player_manager:getMasterPlayer()
+    if not player_info then return nil end
+    local hunter_character = player_info:get_Character()
+    return hunter_character
+end
+
+local function get_wp()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    local wp = hunter:get_WeaponHandling()
+    return wp
+end
+
+local function get_kinsect()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    local kinsect = hunter:get_Wp10Insect()
+    return kinsect
+end
+
+local function change_kinsect_action(category, index)
+    local kinsect = get_kinsect()
+    if not kinsect then return end
+    local ActionIDType = sdk.find_type_definition("ace.ACTION_ID")
+    local instance = ValueType.new(ActionIDType)
+    sdk.set_native_field(instance, ActionIDType, "_Category", category)
+    sdk.set_native_field(instance, ActionIDType, "_Index", index)
+    kinsect:call("requestChangeAction(ace.ACTION_ID, System.Boolean)", instance, true)
+end
 
 -- action states
 -- app.Wp10Action.cHoldAttackSuper.doUpdate()
@@ -118,6 +170,7 @@ end, function(retval)
 end)
 
 -- core
+local force_change_action = false
 sdk.hook(sdk.find_type_definition("app.Wp10Insect"):get_method("requestChangeAction(ace.ACTION_ID, System.Boolean)"), 
 function(args)
     local Wp10Insect = sdk.to_managed_object(args[2])
@@ -125,6 +178,10 @@ function(args)
     local hunter = Wp10Insect:get_Hunter()
     if not hunter then return end
     if not (hunter:get_IsMaster() and hunter:get_IsUserControl()) then return end
+
+    if force_change_action then return end
+
+    -- log.debug("hunter: " .. string.format("%x", hunter:get_address()))
 
     -- hunter state
     local Wp10Handling = Wp10Insect._Wp10
@@ -185,11 +242,34 @@ function(args)
     -- end
 end, nil)
 
+-- triangle recall kinsect
+-- app.cPlayerCommandController.update
+sdk.hook(sdk.find_type_definition("app.cPlayerCommandController"):get_method("update"), nil, 
+function(retval)
+    if not config.item_button_recall then return retval end
+    local player_input = get_input()
+    if not player_input then return end
+    local key_idx = 6 -- square
+    local key = player_input:getKey(key_idx)
+    local on_trigger = key:get_OnTrigger()
+    if on_trigger then
+        local Wp10Insect = get_kinsect()
+        if not Wp10Insect then return end
+        force_change_action = true
+        change_kinsect_action(0, 4)
+        force_change_action = false
+    end
+
+    return retval
+end)
+
+
 -- ui
 re.on_draw_ui(function()
     local changed, any_changed = false, false
 
     if imgui.tree_node("Kinsect, Don't Come Back!") then
+        changed, config.item_button_recall = imgui.checkbox("Item Button Recall Kinsect", config.item_button_recall)
         changed, config.auto_back_time = imgui.drag_float("Auto Back Time", config.auto_back_time, 0.1, 0, 200, "%.2f")
         imgui.text("Default: 3.0; Set to 200.0 to disable auto back")
         changed, config.charged_attack_is_tripple = imgui.checkbox("Charged Attack in Tripple Up", config.charged_attack_is_tripple)
