@@ -125,6 +125,16 @@ local function get_config(motion_name, function_name)
     return start_frame, end_frame
 end
 
+function contains_token(haystack, needle)
+    local needle_lower = needle:lower()
+    for token in string.gmatch(haystack, "[^|]+") do
+        if token:lower() == needle_lower then
+            return true
+        end
+    end
+    return false
+end
+
 -- status monitor
 
 -- app.Wp10_Export.table_dca14e16_fa0d_4740_b396_0a7b7bb32b81 normal
@@ -301,11 +311,12 @@ function(args)
     -- log.debug("DamageOwner: " .. damage_owner_name)
     if damage_owner_name ~= "MasterPlayer" then return end
 
-    local attack_data = hit_info:get_field("<AttackData>k__BackingField")
-    if not attack_data then return end
-    local is_parry_fix = attack_data:get_field("_IsParryFix")
+    local attack_owner = hit_info:get_field("<AttackOwner>k__BackingField")
+    if not attack_owner then return end
+    local attack_owner_tag = attack_owner:get_Tag()
+    local is_parry_able = not contains_token(attack_owner_tag, "Shell")
     
-    if not is_parry_fix and not config.parry.parry_all_attacks then return end
+    if not is_parry_able and not config.parry.parry_all_attacks then return end
 
     -- local damage_data = hit_info:get_field("<DamageAttackData>k__BackingField")
     -- local parry_dmg = damage_data:get_field("_ParryDamage")
