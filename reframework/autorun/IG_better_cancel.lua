@@ -150,18 +150,18 @@ local function preHook(args)
     local _Pre_CHARGE = Wp10Cancel:get_field("_Pre_CHARGE")
     local _CHARGE = Wp10Cancel:get_field("_CHARGE")
 
-    local ground_pre = _PreDodge or _Pre_ATTACK_00_COMBO or _Pre_ATTACK_01_COMBO or _Pre_BATON_MARKING or _Pre_JUMP or _Pre_AIM_ATTACK or _Pre_INSECT_ORDER
-    local ground = _Dodge or _ATTACK_00_COMBO or _ATTACK_01_COMBO or _BATON_MARKING or _JUMP or _AIM_ATTACK or _INSECT_ORDER
+    local ground_pre = _Pre_ATTACK_00_COMBO or _Pre_ATTACK_01_COMBO or _Pre_BATON_MARKING or _Pre_AIM_ATTACK or _Pre_INSECT_ORDER
+    local ground = _ATTACK_00_COMBO or _ATTACK_01_COMBO or _BATON_MARKING or _AIM_ATTACK or _INSECT_ORDER
     local air_pre = _Pre_AIR_ATTACK or _Pre_AIR_DODGE or _Pre_CHARGE
     local air = _AIR_ATTACK or _AIR_DODGE or _CHARGE
 
     if config.dodge then
-        Wp10Cancel:set_field("_PreDodge", ground_pre)
-        Wp10Cancel:set_field("_Dodge", ground)
+        Wp10Cancel:set_field("_PreDodge", _PreDodge or ground_pre)
+        Wp10Cancel:set_field("_Dodge", _Dodge or ground)
     end
     if config.jump then
-        Wp10Cancel:set_field("_Pre_JUMP", ground_pre)
-        Wp10Cancel:set_field("_JUMP", ground)
+        Wp10Cancel:set_field("_Pre_JUMP", _Pre_JUMP or ground_pre)
+        Wp10Cancel:set_field("_JUMP", _JUMP or ground)
     end
     if config.ground_attacks then
         Wp10Cancel:set_field("_Pre_ATTACK_00_COMBO", ground_pre)
