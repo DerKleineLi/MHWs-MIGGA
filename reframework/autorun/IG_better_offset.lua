@@ -249,28 +249,6 @@ function(args)
     helicopter_start = os.clock()
 end, nil)
 
--- cache a app.cAttackParamPl instance when hunter perform attack
-local player_attack_param = nil
--- app.HunterCharacter.evHit_AttackPostProcess(app.HitInfo)
-sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("evHit_AttackPostProcess(app.HitInfo)"),
-function(args)
-    local this = sdk.to_managed_object(args[2])
-    if not this then return end
-    if not (this:get_IsMaster() and this:get_IsUserControl()) then return end
-
-    local hit_info = sdk.to_managed_object(args[3])
-    local attack_data = hit_info:get_field("<AttackData>k__BackingField")
-    if not attack_data then return end
-
-    if player_attack_param then
-        player_attack_param:force_release()
-    end
-
-    attack_data:add_ref_permanent()
-    player_attack_param = attack_data
-    -- log.debug("HunterAttackData: " .. string.format("%X", player_attack_param:get_address()))
-end, nil)
-
 -- core
 -- rockstedy
 -- app.HunterCharacter.evHit_Damage
@@ -303,7 +281,6 @@ end, nil)
 -- app.EnemyCharacter.evHit_AttackPreProcess(app.HitInfo)
 sdk.hook(sdk.find_type_definition("app.EnemyCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"),
 function(args)
-    if not player_attack_param then return end
     local hit_info = sdk.to_managed_object(args[3])
     if not hit_info then return end
     local damage_owner = hit_info:get_field("<DamageOwner>k__BackingField")
@@ -327,9 +304,10 @@ function(args)
 
     if in_window("parry") then
         hit_info:set_field("<CollisionLayer>k__BackingField", 18) -- PARRY
-        player_attack_param:set_field("_HitEffectType", 18) -- PARRY
-        player_attack_param:set_field("_ParryDamage", config.parry.parry_damage)
-        hit_info:set_field("<DamageAttackData>k__BackingField", player_attack_param)
+        local attack_param_pl = sdk.create_instance("app.cAttackParamPl", true)
+        hit_info:set_DamageAttackData(attack_param_pl)
+        hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectType", 18)
+        hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_ParryDamage", config.parry.parry_damage)
         on_mod_parry = true
     end
 
