@@ -1,0 +1,15 @@
+{
+    "deleted": false,
+    "enabled": true,
+    "motion_configs": {
+        "3_20_276": {
+            "direction_type": 2,
+            "enabled": true,
+            "end_frame": 50,
+            "name": "HBG_shotgun",
+            "speed": 3.0,
+            "speed_type": 3,
+            "start_frame": 5
+        }
+    }
+}
