@@ -23,6 +23,7 @@ local config = {
         end_frame = 0,
         direction_type = 1, -- Omni
         speed_type = 1, -- LStick
+        block_original_move = false,
     },
     motion_configs = {}
 }
@@ -113,6 +114,20 @@ local function rotate(x, y, angle)
     local cos_theta = math.cos(angle)
     local sin_theta = math.sin(angle)
     return x * cos_theta - y * sin_theta, x * sin_theta + y * cos_theta
+end
+
+local function rotate_vector_around_axis(front, up, alpha)
+    local cos_alpha = math.cos(alpha)
+    local sin_alpha = math.sin(alpha)
+
+    local dot_product = front:dot(up)
+    local cross_product = front:cross(up)
+
+    return Vector3f.new(
+        front.x * cos_alpha + cross_product.x * sin_alpha + up.x * dot_product * (1 - cos_alpha),
+        front.y * cos_alpha + cross_product.y * sin_alpha + up.y * dot_product * (1 - cos_alpha),
+        front.z * cos_alpha + cross_product.z * sin_alpha + up.z * dot_product * (1 - cos_alpha)
+    )
 end
 
 local function get_hunter()
@@ -228,6 +243,14 @@ local function get_input()
     end
     output.virtual_input_world_dir = Vector3f.new(virtual_input_world_x, 0, virtual_input_world_z)
 
+    local up_vector = Vector3f.new(0, 1, 0)
+    local camera_right_vector = (output.camera_lookat_dir:cross(up_vector)):normalized()
+    local camera_up_vector = (camera_right_vector:cross(output.camera_lookat_dir)):normalized()
+    output.camera_right_dir = camera_right_vector
+    output.camera_up_dir = camera_up_vector
+
+    output.virtual_input_world_dir_3d = rotate_vector_around_axis(output.camera_lookat_dir, camera_up_vector, math.atan(virtual_lstick.x, virtual_lstick.y))
+
     return output
 end
 
@@ -251,6 +274,11 @@ local function get_hunter_transform()
     return output
 end
 
+local function set_hunter_position(pos)
+    local hunter_transform = get_hunter_transform()
+    hunter_transform.transform:set_Position(pos)
+end
+
 local function set_hunter_offset(direction, distance)
     local hunter_transform = get_hunter_transform()
     if not hunter_transform then return end
@@ -265,6 +293,9 @@ end
 local direction_types = {
     "Omni",
     "Aligned",
+    "Camera",
+    "Camera3D_Omni",
+    "Camera3D_Aligned",
 }
 local speed_types = {
     "LStick",
@@ -275,6 +306,7 @@ local speed_types = {
 local last_frame_time = nil
 local last_start_input_world_dir = Vector3f.new(0, 0, 0)
 local start_input_world_dir_angle = 0.0
+local last_hunter_position = nil
 re.on_application_entry("UpdateMotionFrame", function()
     local input = get_input()
     local hunter_transform = get_hunter_transform()
@@ -302,6 +334,17 @@ re.on_application_entry("UpdateMotionFrame", function()
                         direction = Vector3f.new(new_x, 0, new_z)
                         local l_stick_direction = input.virtual_input_world_dir
                         magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
+                    elseif direction_types[target_config.direction_type] == "Camera" then
+                        direction = input.camera_front_dir
+                        local l_stick_direction = input.virtual_input_world_dir
+                        magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
+                    elseif direction_types[target_config.direction_type] == "Camera3D_Omni" then
+                        direction = input.virtual_input_world_dir_3d
+                    elseif direction_types[target_config.direction_type] == "Camera3D_Aligned" then
+                        direction = input.camera_lookat_dir
+                        local camera_front = input.camera_front_dir
+                        local l_stick_direction = input.virtual_input_world_dir
+                        magnitude_scale = camera_front.x * l_stick_direction.x + camera_front.y * l_stick_direction.y + camera_front.z * l_stick_direction.z
                     end
 
                     local speed = target_config.speed
@@ -314,12 +357,26 @@ re.on_application_entry("UpdateMotionFrame", function()
                     elseif speed_types[target_config.speed_type] == "Fixed" then
                         speed = speed
                     end
-
                     local distance = speed * (os.clock() - last_frame_time)
-                    if (direction.x ~= 0 or direction.z ~= 0) and distance > 0 then
-                        set_hunter_offset(direction, distance)
-                        break
+
+                    local position_changed = false
+                    if last_hunter_position and target_config.block_original_move then
+                        local current_pos = hunter_transform.position
+                        local new_equal_old = (
+                            current_pos.x == last_hunter_position.x and
+                            current_pos.y == last_hunter_position.y and
+                            current_pos.z == last_hunter_position.z
+                        )
+                        if not new_equal_old then
+                            set_hunter_position(last_hunter_position)
+                            position_changed = true
+                        end
                     end
+                    if direction:length() > 0 and distance ~= 0 then
+                        set_hunter_offset(direction, distance)
+                        position_changed = true
+                    end
+                    if position_changed then break end
                 end
             end
         end
@@ -339,8 +396,8 @@ re.on_application_entry("UpdateMotionFrame", function()
     elseif not input.is_enable_start_input_world_dir then
         start_input_world_dir_angle = 0.0
     end
-
     last_start_input_world_dir = new_start_input_world_dir
+    last_hunter_position = get_hunter_transform().position
 end)
 
 -- UI
@@ -384,6 +441,8 @@ re.on_draw_ui(function()
                 changed, config.global_motion_config.direction_type = imgui.combo("Direction Type", config.global_motion_config.direction_type, direction_types)
                 imgui.text("LStick: speed scales linearly with the Lstick magnitude. LStick Trigger: speed is 0 until the Lstick trigger threshold is reached. Fixed: speed is fixed.")
                 changed, config.global_motion_config.speed_type = imgui.combo("Speed Type", config.global_motion_config.speed_type, speed_types)
+                changed, config.global_motion_config.block_original_move = imgui.checkbox("Block Original Move", config.global_motion_config.block_original_move)
+                
                 imgui.tree_pop()
             end
             
@@ -459,6 +518,7 @@ re.on_draw_ui(function()
                             motion_config.speed_type = motion_config.speed_type or 1
                             motion_config.start_frame = motion_config.start_frame or 0
                             motion_config.end_frame = motion_config.end_frame or 0
+                            motion_config.block_original_move = motion_config.block_original_move or false
         
                             local motion_id_str = motion_config.name .. " (" .. key .. ")"
                             if imgui.tree_node(motion_id_str) then
@@ -473,9 +533,10 @@ re.on_draw_ui(function()
                                 imgui.end_table()
                                 changed, motion_config.direction_type = imgui.combo("Direction Type", motion_config.direction_type, direction_types)
                                 changed, motion_config.speed_type = imgui.combo("Speed Type", motion_config.speed_type, speed_types)
+                                changed, motion_config.block_original_move = imgui.checkbox("Block Original Move", motion_config.block_original_move)
         
                                 if imgui.button("Remove") then
-                                    preset_config[key] = nil
+                                    motion_configs[key] = nil
                                 end
                                 imgui.tree_pop()
                             end
@@ -485,7 +546,7 @@ re.on_draw_ui(function()
                     end
         
                     if imgui.button("Clear Preset") then
-                        motion_configs = {}
+                        preset_config.motion_configs = {}
                     end
 
                     changed, UI_vars.preset_save_as = imgui.input_text("Save As", UI_vars.preset_save_as)
