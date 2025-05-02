@@ -1,0 +1,16 @@
+{
+    "deleted": false,
+    "enabled": true,
+    "motion_configs": {
+        "0_20_466": {
+            "block_original_move": false,
+            "direction_type": 5,
+            "enabled": true,
+            "end_frame": 1000,
+            "name": "IG_air_focus_strike_00",
+            "speed": 10.0,
+            "speed_type": 3,
+            "start_frame": 0
+        }
+    }
+}
