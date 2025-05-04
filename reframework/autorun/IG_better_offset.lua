@@ -365,6 +365,7 @@ re.on_draw_ui(function()
             changed, config.step.helicopter_start, config.step.helicopter = two_rows("Helicopter", config.step.helicopter_start, config.step.helicopter, "Start", "End", 0, motion_max_frames.helicopter)
             changed, config.step.ground_marking_start, config.step.ground_marking = two_rows("Ground Marking", config.step.ground_marking_start, config.step.ground_marking, "Start", "End", 0, motion_max_frames.ground_marking)
             changed, config.step.air_marking_start, config.step.air_marking = two_rows("Air Marking", config.step.air_marking_start, config.step.air_marking, "Start", "End", 0, motion_max_frames.air_marking)
+            imgui.tree_pop()
         end
 
         imgui.tree_pop()
