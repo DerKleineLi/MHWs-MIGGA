@@ -16,6 +16,7 @@ local config = {
     always_left_double_stab = true,
     combo2_charge_stab = false,
     hotkey_left_double_stab = true,
+    combo1_no_charge = false,
 }
 
 merge_tables(config, saved_config)
@@ -354,9 +355,11 @@ function(args)
             break
         end
     end
+    local is_combo1_charge_no_aim = this_type_name == "app.Wp10Action.cBatonMoveAttackNoCombo"
     -- log.debug("doEnter() called on: " .. this_type_name)
 
     should_left_double_stab = config.hotkey_left_double_stab and get_is_back_forward() and is_target_attack
+    should_left_double_stab = should_left_double_stab or (config.combo1_no_charge and is_combo1_charge_no_aim)
 
 end,
 function(retval)
@@ -373,6 +376,7 @@ end)
 
 -- app.Wp10Action.cBatonMoveAttack.doEnter()
 local slash_dir = nil
+local combo_stage = nil
 sdk.hook(sdk.find_type_definition("app.Wp10Action.cBatonMoveAttack"):get_method("doEnter()"),
 function(args)
     slash_dir = -1
@@ -383,6 +387,10 @@ function(args)
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
 
     slash_dir = this:judgeSlashDir()
+    local this_type = this:get_type_definition()
+    local this_type_name = this_type:get_full_name()
+    -- log.debug("doEnter() called on: " .. this_type_name)
+    combo_stage = this_type_name == "app.Wp10Action.cBatonMoveAttack2" and 2 or 1
 
     if slash_dir == 0 and config.combo2_charge_stab then
         local motion_data = get_motion_data()
@@ -408,7 +416,13 @@ end, function(retval)
     end
     
     if slash_dir == 0 then
-        if config.combo2_charge_stab then
+        if combo_stage == 1 and config.combo1_no_charge then -- charge stab
+            layer:call("changeMotion(System.UInt32, System.UInt32, System.Single, System.Single, via.motion.InterpolationMode, via.motion.InterpolationCurve)", 
+                20, 278, 0.0, 10.0, 1, 0) -- left double
+            motion_stage = MotionStage.InTriggeredLeftDoubleStab
+            return retval
+        end
+        if combo_stage == 2 and config.combo2_charge_stab then
             layer:call("changeMotion(System.UInt32, System.UInt32, System.Single, System.Single, via.motion.InterpolationMode, via.motion.InterpolationCurve)", 
                 20, 270, 0.0, 10.0, 1, 0) -- charge stab
             return retval
@@ -483,6 +497,7 @@ re.on_draw_ui(function()
 
     if imgui.tree_node("Insect Glaive Better Stab") then
         changed, config.charge_stab_double_stab = imgui.checkbox("Charge Stab -> Charge Double Stab", config.charge_stab_double_stab)
+        changed, config.combo1_no_charge = imgui.checkbox("Combo 1 Charge Stab -> Left Double Stab", config.combo1_no_charge)
         changed, config.combo2_charge_stab = imgui.checkbox("Combo 2 Double Stab -> Charge Stab", config.combo2_charge_stab)
         changed, config.always_left_double_stab = imgui.checkbox("Combo 2 Right Double Stab -> Left Double Stab", config.always_left_double_stab)
         imgui.text("Hotkey Left Double Stab: when enabled, use back + forward + attack to trigger left double stab in first two stages of light attacks.")
