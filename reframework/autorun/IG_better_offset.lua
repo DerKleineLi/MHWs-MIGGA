@@ -252,29 +252,41 @@ end, nil)
 -- core
 -- rockstedy
 -- app.HunterCharacter.evHit_Damage
-sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("evHit_Damage"),
+sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("evHit_Damage(app.HitInfo)"),
 function(args)
     local this = sdk.to_managed_object(args[2])
     if not this then return end
     if not (this:get_IsMaster() and this:get_IsUserControl()) then return end
 
-    local force_step = false
-    if on_vanilla_parry then
-        if config.step.step_on_vanilla_ground_parry and in_motion.ground_offset then
-            force_step = true
+    local hit_info = sdk.to_managed_object(args[3])
+    if not hit_info then return end
+
+    local attack_owner = hit_info:get_field("<AttackOwner>k__BackingField")
+    if not attack_owner then return end
+    local attack_owner_tag = attack_owner:get_Tag()
+
+    local attack_data = hit_info:get_field("<AttackData>k__BackingField")
+    local attack_value = attack_data:get_field("_Attack")
+    local heal_value = attack_data:get_field("_HealValue")
+
+    if contains_token(attack_owner_tag, "Enemy") and attack_value > 0 then
+        local force_step = false
+        if on_vanilla_parry then
+            if config.step.step_on_vanilla_ground_parry and in_motion.ground_offset then
+                force_step = true
+            end
+            if config.step.step_on_vanilla_air_parry and in_motion.air_offset_air then
+                force_step = true
+            end
         end
-        if config.step.step_on_vanilla_air_parry and in_motion.air_offset_air then
-            force_step = true
+        force_step = force_step or in_window("step")
+        if force_step then
+            change_action(0, 2, 53) -- step
+            return sdk.PreHookResult.SKIP_ORIGINAL
         end
-    end
-    force_step = force_step or in_window("step")
-    if force_step then
-        change_action(0, 2, 53) -- step
-        return sdk.PreHookResult.SKIP_ORIGINAL
     end
     
-    if on_mod_parry or in_window("rockstedy") then return sdk.PreHookResult.SKIP_ORIGINAL end
-
+    if on_mod_parry or (in_window("rockstedy") and heal_value <= 0) then return sdk.PreHookResult.SKIP_ORIGINAL end
 end, nil)
 
 -- parry
@@ -292,6 +304,10 @@ function(args)
     if not attack_owner then return end
     local attack_owner_tag = attack_owner:get_Tag()
     local is_parry_able = not contains_token(attack_owner_tag, "Shell")
+
+    local attack_data = hit_info:get_field("<AttackData>k__BackingField")
+    local attack_value = attack_data:get_field("_Attack")
+    is_parry_able = is_parry_able and attack_value > 0
     
     if not is_parry_able and not config.parry.parry_all_attacks then return end
 

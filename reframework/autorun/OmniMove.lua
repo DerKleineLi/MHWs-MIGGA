@@ -24,6 +24,7 @@ local config = {
         direction_type = 1, -- Omni
         speed_type = 1, -- LStick
         block_original_move = false,
+        direction_vector = Vector3f.new(0, 0, 1.0), -- front
     },
     motion_configs = {}
 }
@@ -86,7 +87,10 @@ end
 load_preset_configs()
 
 local function get_motion_config(key)
-    local motion_config = config.global_motion_config
+    local motion_config = {segments = {config.global_motion_config}}
+    if config.global_motion_config.enabled then
+        return motion_config
+    end
     for _, preset in pairs(preset_configs) do
         if not preset.enabled then goto continue end
         if preset.motion_configs[key] then
@@ -296,6 +300,7 @@ local direction_types = {
     "Camera",
     "Camera3D_Omni",
     "Camera3D_Aligned",
+    "Hunter",
 }
 local speed_types = {
     "LStick",
@@ -322,62 +327,86 @@ re.on_application_entry("UpdateMotionFrame", function()
                 local motion_frame = motion.Frame
                 local layer_id = motion.LayerID
                 local config_key = string.format("%d_%d_%d", layer_id, motion_bank_id, motion_id)
-                local target_config = get_motion_config(config_key)
-                if target_config.enabled and motion_frame >= target_config.start_frame and motion_frame <= target_config.end_frame then
-                    local magnitude_scale = 1.0
-                    local direction = nil
-                    if direction_types[target_config.direction_type] == "Omni" then
-                        direction = input.virtual_input_world_dir
-                    elseif direction_types[target_config.direction_type] == "Aligned" then
-                        local hunter_front = hunter_transform.forward
-                        local new_x, new_z = rotate(hunter_front.x, hunter_front.z, start_input_world_dir_angle)
-                        direction = Vector3f.new(new_x, 0, new_z)
-                        local l_stick_direction = input.virtual_input_world_dir
-                        magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
-                    elseif direction_types[target_config.direction_type] == "Camera" then
-                        direction = input.camera_front_dir
-                        local l_stick_direction = input.virtual_input_world_dir
-                        magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
-                    elseif direction_types[target_config.direction_type] == "Camera3D_Omni" then
-                        direction = input.virtual_input_world_dir_3d
-                    elseif direction_types[target_config.direction_type] == "Camera3D_Aligned" then
-                        direction = input.camera_lookat_dir
-                        local camera_front = input.camera_front_dir
-                        local l_stick_direction = input.virtual_input_world_dir
-                        magnitude_scale = camera_front.x * l_stick_direction.x + camera_front.y * l_stick_direction.y + camera_front.z * l_stick_direction.z
-                    end
+                local target_motion_config = get_motion_config(config_key)
 
-                    local speed = target_config.speed
-                    if speed_types[target_config.speed_type] == "LStick" then
-                        local linear_magnitude = (input.virtual_lstick_magnitude - config.LStick_active_threshold) / (1 - config.LStick_active_threshold + 1e-6)
-                        linear_magnitude = math.max(0, math.min(1, linear_magnitude))
-                        speed = magnitude_scale * linear_magnitude * speed
-                    elseif speed_types[target_config.speed_type] == "LStick Trigger" then
-                        speed = input.virtual_lstick_magnitude * magnitude_scale >= config.LStick_trigger_threshold and speed or 0
-                    elseif speed_types[target_config.speed_type] == "Fixed" then
-                        speed = speed
-                    end
-                    local distance = speed * (os.clock() - last_frame_time)
+                local position_changed = false
+                for _, target_config in ipairs(target_motion_config.segments) do
+                    if target_config.enabled and motion_frame >= target_config.start_frame and motion_frame <= target_config.end_frame then
+                        local magnitude_scale = 1.0
+                        local direction = nil
+                        if direction_types[target_config.direction_type] == "Omni" then
+                            direction = input.virtual_input_world_dir
+                        elseif direction_types[target_config.direction_type] == "Aligned" then
+                            local hunter_front = hunter_transform.forward
+                            local new_x, new_z = rotate(hunter_front.x, hunter_front.z, start_input_world_dir_angle)
+                            direction = Vector3f.new(new_x, 0, new_z)
+                            local l_stick_direction = input.virtual_input_world_dir
+                            magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
+                        elseif direction_types[target_config.direction_type] == "Camera" then
+                            local direction_vector = target_config.direction_vector
+                            if direction_vector:length() == 0 then
+                                direction_vector = Vector3f.new(0, 0, 1.0)
+                            end
+                            local v_right, v_up, v_front = direction_vector.x, direction_vector.y, direction_vector.z
+                            direction = input.camera_front_dir * v_front + input.camera_right_dir * v_right + Vector3f.new(0, 1, 0) * v_up
+                            direction:normalize()
+                            local l_stick_direction = input.virtual_input_world_dir
+                            magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
+                        elseif direction_types[target_config.direction_type] == "Camera3D_Omni" then
+                            direction = input.virtual_input_world_dir_3d
+                        elseif direction_types[target_config.direction_type] == "Camera3D_Aligned" then
+                            local direction_vector = target_config.direction_vector
+                            if direction_vector:length() == 0 then
+                                direction_vector = Vector3f.new(0, 0, 1.0)
+                            end
+                            local v_right, v_up, v_front = direction_vector.x, direction_vector.y, direction_vector.z
+                            direction = input.camera_lookat_dir * v_front + input.camera_right_dir * v_right + input.camera_up_dir * v_up
+                            direction:normalize()
+                            local camera_front = input.camera_front_dir
+                            local l_stick_direction = input.virtual_input_world_dir
+                            magnitude_scale = camera_front.x * l_stick_direction.x + camera_front.y * l_stick_direction.y + camera_front.z * l_stick_direction.z
+                        elseif direction_types[target_config.direction_type] == "Hunter" then
+                            local direction_vector = target_config.direction_vector
+                            if direction_vector:length() == 0 then
+                                direction_vector = Vector3f.new(0, 0, 1.0)
+                            end
+                            local v_right, v_up, v_front = direction_vector.x, direction_vector.y, direction_vector.z
+                            direction = hunter_transform.forward * v_front + hunter_transform.right * v_right + hunter_transform.up * v_up
+                            local l_stick_direction = input.virtual_input_world_dir
+                            magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
+                        end
 
-                    local position_changed = false
-                    if last_hunter_position and target_config.block_original_move then
-                        local current_pos = hunter_transform.position
-                        local new_equal_old = (
-                            current_pos.x == last_hunter_position.x and
-                            current_pos.y == last_hunter_position.y and
-                            current_pos.z == last_hunter_position.z
-                        )
-                        if not new_equal_old then
-                            set_hunter_position(last_hunter_position)
+                        local speed = target_config.speed
+                        if speed_types[target_config.speed_type] == "LStick" then
+                            local linear_magnitude = (input.virtual_lstick_magnitude - config.LStick_active_threshold) / (1 - config.LStick_active_threshold + 1e-6)
+                            linear_magnitude = math.max(0, math.min(1, linear_magnitude))
+                            speed = magnitude_scale * linear_magnitude * speed
+                        elseif speed_types[target_config.speed_type] == "LStick Trigger" then
+                            speed = input.virtual_lstick_magnitude * magnitude_scale >= config.LStick_trigger_threshold and speed or 0
+                        elseif speed_types[target_config.speed_type] == "Fixed" then
+                            speed = speed
+                        end
+                        local distance = speed * (os.clock() - last_frame_time)
+
+                        if last_hunter_position and target_config.block_original_move then
+                            local current_pos = hunter_transform.position
+                            local new_equal_old = (
+                                current_pos.x == last_hunter_position.x and
+                                current_pos.y == last_hunter_position.y and
+                                current_pos.z == last_hunter_position.z
+                            )
+                            if not new_equal_old then
+                                set_hunter_position(last_hunter_position)
+                                position_changed = true
+                            end
+                        end
+                        if direction:length() > 0 and distance ~= 0 then
+                            set_hunter_offset(direction, distance)
                             position_changed = true
                         end
                     end
-                    if direction:length() > 0 and distance ~= 0 then
-                        set_hunter_offset(direction, distance)
-                        position_changed = true
-                    end
-                    if position_changed then break end
                 end
+                if position_changed then break end
             end
         end
     end
@@ -437,9 +466,33 @@ re.on_draw_ui(function()
                 imgui.table_next_column()
                 changed, config.global_motion_config.end_frame = imgui.drag_int("End Frame", config.global_motion_config.end_frame, 1, 0, 1000)
                 imgui.end_table()
-                imgui.text("Omni: direction aligns with the Lstick/WASD. Aligned: direction aligns with the hunter motion.")
+                if imgui.tree_node("Direction Type:") then
+                    imgui.text("Omni: direction aligns with the Lstick/WASD.")
+                    imgui.text("Aligned: direction aligns with the hunter motion.")
+                    imgui.text("Camera: direction aligns with the camera frame, regardless of the pitch.")
+                    imgui.text("Camera3D_Omni: direction aligns with the XZ plane of the camera, with LStick/WASD determin the direction.")
+                    imgui.text("Camera3D_Aligned: direction aligns with the camera frame, considering the pitch.")
+                    imgui.text("Hunter: direction aligns with the hunter frame.")
+                    imgui.tree_pop()
+                end
                 changed, config.global_motion_config.direction_type = imgui.combo("Direction Type", config.global_motion_config.direction_type, direction_types)
-                imgui.text("LStick: speed scales linearly with the Lstick magnitude. LStick Trigger: speed is 0 until the Lstick trigger threshold is reached. Fixed: speed is fixed.")
+                if imgui.tree_node("Direction Vector:") then
+                    imgui.text("Only works when the direction type is Camera, Camera3D_Aligned, or Hunter.")
+                    imgui.text("Forward: (0, 0, 1)")
+                    imgui.text("Right: (1, 0, 0)")
+                    imgui.text("Up: (0, 1, 0)")
+                    imgui.text("Left: (-1, 0, 0)")
+                    imgui.text("Back: (0, 0, -1)")
+                    imgui.text("Down: (0, -1, 0)")
+                    imgui.tree_pop()
+                end
+                changed, config.global_motion_config.direction_vector = imgui.drag_float3("Direction Vector", config.global_motion_config.direction_vector, 0.01, -1.0, 1.0)
+                if imgui.tree_node("Speed Type:") then
+                    imgui.text("LStick: speed scales linearly with the Lstick magnitude.")
+                    imgui.text("LStick Trigger: speed is 0 until the Lstick trigger threshold is reached, afterwards the max speed.")
+                    imgui.text("Fixed: speed is fixed to maximum.")
+                    imgui.tree_pop()
+                end
                 changed, config.global_motion_config.speed_type = imgui.combo("Speed Type", config.global_motion_config.speed_type, speed_types)
                 changed, config.global_motion_config.block_original_move = imgui.checkbox("Block Original Move", config.global_motion_config.block_original_move)
                 
@@ -499,11 +552,6 @@ re.on_draw_ui(function()
                             local key_exists = motion_configs[key] ~= nil
                             motion_configs[key] = motion_configs[key] or {}
                             motion_configs[key].name = UI_vars.motion_name_to_add
-                            if not key_exists then
-                                motion_configs[key].enabled = true
-                                motion_configs[key].end_frame = 30
-                                motion_configs[key].speed = 5.0
-                            end
                         end
                         imgui.tree_pop()
                     end
@@ -512,30 +560,48 @@ re.on_draw_ui(function()
                         for key, motion_config in spairs(motion_configs) do
                             -- make sure motion_config contains all the required fields
                             motion_config.name = motion_config.name or "Unnamed"
-                            motion_config.speed = motion_config.speed or 0.0
-                            motion_config.enabled = motion_config.enabled or false
-                            motion_config.direction_type = motion_config.direction_type or 1
-                            motion_config.speed_type = motion_config.speed_type or 1
-                            motion_config.start_frame = motion_config.start_frame or 0
-                            motion_config.end_frame = motion_config.end_frame or 0
-                            motion_config.block_original_move = motion_config.block_original_move or false
-        
+                            motion_config.segments = motion_config.segments or {{}}
                             local motion_id_str = motion_config.name .. " (" .. key .. ")"
                             if imgui.tree_node(motion_id_str) then
-                                changed, motion_config.enabled = imgui.checkbox("Enabled", motion_config.enabled)
-                                changed, motion_config.speed = imgui.drag_float("Speed", motion_config.speed, 0.01, -100.0, 100.0, "%.2f")
-                                imgui.begin_table("Frames", 2)
-                                imgui.table_next_row()
-                                imgui.table_next_column()
-                                changed, motion_config.start_frame = imgui.drag_int("Start Frame", motion_config.start_frame, 1, 0, 1000)
-                                imgui.table_next_column()
-                                changed, motion_config.end_frame = imgui.drag_int("End Frame", motion_config.end_frame, 1, 0, 1000)
-                                imgui.end_table()
-                                changed, motion_config.direction_type = imgui.combo("Direction Type", motion_config.direction_type, direction_types)
-                                changed, motion_config.speed_type = imgui.combo("Speed Type", motion_config.speed_type, speed_types)
-                                changed, motion_config.block_original_move = imgui.checkbox("Block Original Move", motion_config.block_original_move)
-        
-                                if imgui.button("Remove") then
+                                for segment_idx, segment in ipairs(motion_config.segments) do
+                                    segment.speed = segment.speed or 0.0
+                                    segment.enabled = segment.enabled or false
+                                    segment.direction_type = segment.direction_type or 1
+                                    segment.speed_type = segment.speed_type or 1
+                                    segment.start_frame = segment.start_frame or 0
+                                    segment.end_frame = segment.end_frame or 0
+                                    segment.block_original_move = segment.block_original_move or false
+                                    segment.direction_vector = segment.direction_vector or Vector3f.new(0, 0, 1.0)
+
+                                    if imgui.tree_node("Segment " .. tostring(segment_idx)) then
+                                        changed, segment.enabled = imgui.checkbox("Enabled", segment.enabled)
+                                        changed, segment.speed = imgui.drag_float("Speed", segment.speed, 0.01, -100.0, 100.0, "%.2f")
+                                        imgui.begin_table("Frames", 2)
+                                        imgui.table_next_row()
+                                        imgui.table_next_column()
+                                        changed, segment.start_frame = imgui.drag_int("Start Frame", segment.start_frame, 1, 0, 1000)
+                                        imgui.table_next_column()
+                                        changed, segment.end_frame = imgui.drag_int("End Frame", segment.end_frame, 1, 0, 1000)
+                                        imgui.end_table()
+                                        changed, segment.direction_type = imgui.combo("Direction Type", segment.direction_type, direction_types)
+                                        changed, segment.direction_vector = imgui.drag_float3("Direction Vector", segment.direction_vector, 0.01, -1.0, 1.0)
+                                        changed, segment.speed_type = imgui.combo("Speed Type", segment.speed_type, speed_types)
+                                        changed, segment.block_original_move = imgui.checkbox("Block Original Move", segment.block_original_move)
+                                        
+                                        if #motion_config.segments > 1 then
+                                            if imgui.button("Remove Segment") then
+                                                table.remove(motion_config.segments, segment_idx)
+                                            end
+                                        end
+                                        imgui.tree_pop()
+                                    end
+                                end
+
+                                if imgui.button("Add Segment") then
+                                    motion_config.segments[#motion_config.segments + 1] = {}
+                                end
+
+                                if imgui.button("Remove Motion") then
                                     motion_configs[key] = nil
                                 end
                                 imgui.tree_pop()
