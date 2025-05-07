@@ -8,6 +8,11 @@
                 {
                     "block_original_move": false,
                     "direction_type": 2,
+                    "direction_vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
                     "enabled": true,
                     "end_frame": 30,
                     "speed": 2.5,
@@ -22,6 +27,11 @@
                 {
                     "block_original_move": false,
                     "direction_type": 2,
+                    "direction_vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
                     "enabled": true,
                     "end_frame": 30,
                     "speed": 2.5,
@@ -34,7 +44,13 @@
             "name": "IG_00_right",
             "segments": [
                 {
+                    "block_original_move": false,
                     "direction_type": 2,
+                    "direction_vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
                     "enabled": true,
                     "end_frame": 25,
                     "speed": 2.5,
@@ -47,7 +63,13 @@
             "name": "IG_00_back",
             "segments": [
                 {
+                    "block_original_move": false,
                     "direction_type": 2,
+                    "direction_vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
                     "enabled": true,
                     "end_frame": 40,
                     "speed": 2.5,
@@ -60,7 +82,13 @@
             "name": "IG_01_left",
             "segments": [
                 {
+                    "block_original_move": false,
                     "direction_type": 2,
+                    "direction_vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
                     "enabled": true,
                     "end_frame": 50,
                     "speed": 2.5,
@@ -75,6 +103,11 @@
                 {
                     "block_original_move": false,
                     "direction_type": 2,
+                    "direction_vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
                     "enabled": true,
                     "end_frame": 50,
                     "speed": 2.5,
@@ -89,6 +122,11 @@
                 {
                     "block_original_move": false,
                     "direction_type": 2,
+                    "direction_vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
                     "enabled": true,
                     "end_frame": 50,
                     "speed": 2.5,

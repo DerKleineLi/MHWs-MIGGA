@@ -9,8 +9,8 @@
                     "block_original_move": false,
                     "direction_type": 6,
                     "direction_vector": [
-                        0,
-                        0,
+                        0.0,
+                        0.0,
                         1.0
                     ],
                     "enabled": true,
@@ -23,8 +23,8 @@
                     "block_original_move": false,
                     "direction_type": 6,
                     "direction_vector": [
-                        0,
-                        0,
+                        0.0,
+                        0.0,
                         1.0
                     ],
                     "enabled": true,
@@ -37,8 +37,8 @@
                     "block_original_move": false,
                     "direction_type": 6,
                     "direction_vector": [
-                        0,
-                        0,
+                        0.0,
+                        0.0,
                         1.0
                     ],
                     "enabled": true,
@@ -55,6 +55,11 @@
                 {
                     "block_original_move": false,
                     "direction_type": 5,
+                    "direction_vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
                     "enabled": true,
                     "end_frame": 1000,
                     "speed": 10.0,
