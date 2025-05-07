@@ -327,6 +327,10 @@ function(args)
     if not this_hunter then return end
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
 
+    local this_type = this:get_type_definition()
+    local this_type_name = this_type:get_full_name()
+    if this_type_name ~= "app.Wp10Action.cBatonMarkingAir" then return end
+
     in_air_marking = true
     air_marking_time = os.clock() - air_marking_start
     force_all_cancel = config.air_imba or (air_marking_time > config.air_motion_after_air_marking_time and config.air_motion_after_air_marking)
