@@ -24,7 +24,7 @@ local config = {
         direction_type = 1, -- Omni
         speed_type = 1, -- LStick
         block_original_move = false,
-        direction_vector = Vector3f.new(0, 0, 1.0), -- front
+        direction_vector = {0, 0, 1.0}, -- front
     },
     motion_configs = {}
 }
@@ -293,6 +293,16 @@ local function set_hunter_offset(direction, distance)
     hunter_transform.transform:set_Position(current_pos)
 end
 
+local function get_direction(front, right, up, direction_vector_table)
+    local direction_vector = Vector3f.new(direction_vector_table[1], direction_vector_table[2], direction_vector_table[3])
+    if direction_vector:length() == 0 then
+        direction_vector = Vector3f.new(0, 0, 1.0)
+    end
+    local direction = front * direction_vector.z + right * direction_vector.x + up * direction_vector.y
+    direction:normalize()
+    return direction
+end
+
 -- core
 local direction_types = {
     "Omni",
@@ -343,35 +353,18 @@ re.on_application_entry("UpdateMotionFrame", function()
                             local l_stick_direction = input.virtual_input_world_dir
                             magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
                         elseif direction_types[target_config.direction_type] == "Camera" then
-                            local direction_vector = target_config.direction_vector
-                            if direction_vector:length() == 0 then
-                                direction_vector = Vector3f.new(0, 0, 1.0)
-                            end
-                            local v_right, v_up, v_front = direction_vector.x, direction_vector.y, direction_vector.z
-                            direction = input.camera_front_dir * v_front + input.camera_right_dir * v_right + Vector3f.new(0, 1, 0) * v_up
-                            direction:normalize()
+                            direction = get_direction(input.camera_front_dir, input.camera_right_dir, Vector3f.new(0, 1, 0), target_config.direction_vector)
                             local l_stick_direction = input.virtual_input_world_dir
                             magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
                         elseif direction_types[target_config.direction_type] == "Camera3D_Omni" then
                             direction = input.virtual_input_world_dir_3d
                         elseif direction_types[target_config.direction_type] == "Camera3D_Aligned" then
-                            local direction_vector = target_config.direction_vector
-                            if direction_vector:length() == 0 then
-                                direction_vector = Vector3f.new(0, 0, 1.0)
-                            end
-                            local v_right, v_up, v_front = direction_vector.x, direction_vector.y, direction_vector.z
-                            direction = input.camera_lookat_dir * v_front + input.camera_right_dir * v_right + input.camera_up_dir * v_up
-                            direction:normalize()
+                            direction = get_direction(input.camera_lookat_dir, input.camera_right_dir, input.camera_up_dir, target_config.direction_vector)
                             local camera_front = input.camera_front_dir
                             local l_stick_direction = input.virtual_input_world_dir
                             magnitude_scale = camera_front.x * l_stick_direction.x + camera_front.y * l_stick_direction.y + camera_front.z * l_stick_direction.z
                         elseif direction_types[target_config.direction_type] == "Hunter" then
-                            local direction_vector = target_config.direction_vector
-                            if direction_vector:length() == 0 then
-                                direction_vector = Vector3f.new(0, 0, 1.0)
-                            end
-                            local v_right, v_up, v_front = direction_vector.x, direction_vector.y, direction_vector.z
-                            direction = hunter_transform.forward * v_front + hunter_transform.right * v_right + hunter_transform.up * v_up
+                            direction = get_direction(hunter_transform.forward, hunter_transform.right, hunter_transform.up, target_config.direction_vector)
                             local l_stick_direction = input.virtual_input_world_dir
                             magnitude_scale = direction.x * l_stick_direction.x + direction.y * l_stick_direction.y + direction.z * l_stick_direction.z
                         end
@@ -448,6 +441,15 @@ update_UI_preset_table()
 
 re.on_draw_ui(function()
     local changed, any_changed = false, false
+    
+    local function imgui_vec3(config_var)
+        local vec3 = Vector3f.new(config_var[1], config_var[2], config_var[3])
+        changed, vec3 = imgui.drag_float3("Direction Vector", vec3, 0.01, -1.0, 1.0)
+        config_var[1] = vec3.x
+        config_var[2] = vec3.y
+        config_var[3] = vec3.z
+    end
+    
     if imgui.tree_node("OmniMove") then
 
         if imgui.tree_node("Global Configs") then
@@ -486,7 +488,8 @@ re.on_draw_ui(function()
                     imgui.text("Down: (0, -1, 0)")
                     imgui.tree_pop()
                 end
-                changed, config.global_motion_config.direction_vector = imgui.drag_float3("Direction Vector", config.global_motion_config.direction_vector, 0.01, -1.0, 1.0)
+                imgui_vec3(config.global_motion_config.direction_vector)
+                config.global_motion_config.direction_vector[3] = direction_vector.z
                 if imgui.tree_node("Speed Type:") then
                     imgui.text("LStick: speed scales linearly with the Lstick magnitude.")
                     imgui.text("LStick Trigger: speed is 0 until the Lstick trigger threshold is reached, afterwards the max speed.")
@@ -571,7 +574,7 @@ re.on_draw_ui(function()
                                     segment.start_frame = segment.start_frame or 0
                                     segment.end_frame = segment.end_frame or 0
                                     segment.block_original_move = segment.block_original_move or false
-                                    segment.direction_vector = segment.direction_vector or Vector3f.new(0, 0, 1.0)
+                                    segment.direction_vector = segment.direction_vector or {0, 0, 1.0}
 
                                     if imgui.tree_node("Segment " .. tostring(segment_idx)) then
                                         changed, segment.enabled = imgui.checkbox("Enabled", segment.enabled)
@@ -584,7 +587,7 @@ re.on_draw_ui(function()
                                         changed, segment.end_frame = imgui.drag_int("End Frame", segment.end_frame, 1, 0, 1000)
                                         imgui.end_table()
                                         changed, segment.direction_type = imgui.combo("Direction Type", segment.direction_type, direction_types)
-                                        changed, segment.direction_vector = imgui.drag_float3("Direction Vector", segment.direction_vector, 0.01, -1.0, 1.0)
+                                        imgui_vec3(segment.direction_vector)
                                         changed, segment.speed_type = imgui.combo("Speed Type", segment.speed_type, speed_types)
                                         changed, segment.block_original_move = imgui.checkbox("Block Original Move", segment.block_original_move)
                                         
