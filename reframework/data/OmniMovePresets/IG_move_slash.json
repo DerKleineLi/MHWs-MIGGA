@@ -3,67 +3,99 @@
     "enabled": true,
     "motion_configs": {
         "0_20_270": {
-            "direction_type": 2,
-            "enabled": true,
-            "end_frame": 30,
             "name": "IG_00_front",
-            "speed": 2.5,
-            "speed_type": 3,
-            "start_frame": 0
+            "segments": [
+                {
+                    "block_original_move": false,
+                    "direction_type": 2,
+                    "enabled": true,
+                    "end_frame": 30,
+                    "speed": 2.5,
+                    "speed_type": 3,
+                    "start_frame": 0
+                }
+            ]
         },
         "0_20_271": {
-            "direction_type": 2,
-            "enabled": true,
-            "end_frame": 30,
             "name": "IG_00_left",
-            "speed": 2.5,
-            "speed_type": 3,
-            "start_frame": 10
+            "segments": [
+                {
+                    "block_original_move": false,
+                    "direction_type": 2,
+                    "enabled": true,
+                    "end_frame": 30,
+                    "speed": 2.5,
+                    "speed_type": 3,
+                    "start_frame": 10
+                }
+            ]
         },
         "0_20_272": {
-            "direction_type": 2,
-            "enabled": true,
-            "end_frame": 25,
             "name": "IG_00_right",
-            "speed": 2.5,
-            "speed_type": 3,
-            "start_frame": 10
+            "segments": [
+                {
+                    "direction_type": 2,
+                    "enabled": true,
+                    "end_frame": 25,
+                    "speed": 2.5,
+                    "speed_type": 3,
+                    "start_frame": 10
+                }
+            ]
         },
         "0_20_273": {
-            "direction_type": 2,
-            "enabled": true,
-            "end_frame": 40,
             "name": "IG_00_back",
-            "speed": 2.5,
-            "speed_type": 3,
-            "start_frame": 20
+            "segments": [
+                {
+                    "direction_type": 2,
+                    "enabled": true,
+                    "end_frame": 40,
+                    "speed": 2.5,
+                    "speed_type": 3,
+                    "start_frame": 20
+                }
+            ]
         },
         "0_20_275": {
-            "direction_type": 2,
-            "enabled": true,
-            "end_frame": 50,
             "name": "IG_01_left",
-            "speed": 2.5,
-            "speed_type": 3,
-            "start_frame": 10
+            "segments": [
+                {
+                    "direction_type": 2,
+                    "enabled": true,
+                    "end_frame": 50,
+                    "speed": 2.5,
+                    "speed_type": 3,
+                    "start_frame": 10
+                }
+            ]
         },
         "0_20_276": {
-            "direction_type": 2,
-            "enabled": true,
-            "end_frame": 50,
             "name": "IG_01_right",
-            "speed": 2.5,
-            "speed_type": 3,
-            "start_frame": 10
+            "segments": [
+                {
+                    "block_original_move": false,
+                    "direction_type": 2,
+                    "enabled": true,
+                    "end_frame": 50,
+                    "speed": 2.5,
+                    "speed_type": 3,
+                    "start_frame": 10
+                }
+            ]
         },
         "0_20_277": {
-            "direction_type": 2,
-            "enabled": true,
-            "end_frame": 50,
             "name": "IG_01_back",
-            "speed": 2.5,
-            "speed_type": 3,
-            "start_frame": 0
+            "segments": [
+                {
+                    "block_original_move": false,
+                    "direction_type": 2,
+                    "enabled": true,
+                    "end_frame": 50,
+                    "speed": 2.5,
+                    "speed_type": 3,
+                    "start_frame": 0
+                }
+            ]
         }
     }
 }

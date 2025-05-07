@@ -3,14 +3,23 @@
     "enabled": true,
     "motion_configs": {
         "3_20_276": {
-            "block_original_move": true,
-            "direction_type": 2,
-            "enabled": true,
-            "end_frame": 50,
             "name": "HBG_shotgun",
-            "speed": 0.0,
-            "speed_type": 3,
-            "start_frame": 0
+            "segments": [
+                {
+                    "block_original_move": true,
+                    "direction_type": 2,
+                    "direction_vector": [
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "enabled": true,
+                    "end_frame": 50,
+                    "speed": 0.0,
+                    "speed_type": 3,
+                    "start_frame": 0
+                }
+            ]
         }
     }
 }
