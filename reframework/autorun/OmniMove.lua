@@ -23,7 +23,8 @@ local config = {
         end_frame = 0,
         direction_type = 1, -- Omni
         speed_type = 1, -- LStick
-        block_original_move = false,
+        block_original_move = false, -- block original move XZ
+        block_original_move_y = false, -- block original move Y
         direction_vector = {0, 0, 1.0}, -- front
     },
     motion_configs = {}
@@ -86,8 +87,30 @@ local function load_preset_configs()
 end
 load_preset_configs()
 
+local function get_empty_segment_config()
+    return {
+        enabled = false,
+        speed = 0.0,
+        start_frame = 0,
+        end_frame = 1000,
+        direction_type = 1, -- 1: Omni, 2: Aligned, 3: Camera, 4: Camera3D_Omni, 5: Camera3D_Aligned, 6: Hunter
+        speed_type = 1, -- 1: LStick, 2: LStick Trigger, 3: Fixed
+        block_original_move = false, 
+        block_original_move_y = false, 
+        direction_vector = {0, 0, 1.0}, 
+    }
+end
+_OMNIMOVE_GLOBAL_SEGMENT_CONFIG = get_empty_segment_config()
+
 local function get_motion_config(key)
-    local motion_config = {segments = {config.global_motion_config}}
+    local segment_config = get_empty_segment_config()
+    merge_tables(segment_config, _OMNIMOVE_GLOBAL_SEGMENT_CONFIG)
+    local motion_config = {segments = {segment_config}}
+    if segment_config.enabled then
+        return motion_config
+    end
+
+    motion_config = {segments = {config.global_motion_config}}
     if config.global_motion_config.enabled then
         return motion_config
     end
@@ -381,15 +404,23 @@ re.on_application_entry("UpdateMotionFrame", function()
                         end
                         local distance = speed * (os.clock() - last_frame_time)
 
-                        if last_hunter_position and target_config.block_original_move then
+                        if last_hunter_position then
                             local current_pos = hunter_transform.position
-                            local new_equal_old = (
-                                current_pos.x == last_hunter_position.x and
-                                current_pos.y == last_hunter_position.y and
-                                current_pos.z == last_hunter_position.z
+                            local new_pos = Vector3f.new(current_pos.x, current_pos.y, current_pos.z)
+                            if target_config.block_original_move then
+                                new_pos.x = last_hunter_position.x
+                                new_pos.z = last_hunter_position.z
+                            end
+                            if target_config.block_original_move_y then
+                                new_pos.y = last_hunter_position.y
+                            end
+                            local no_update = (
+                                new_pos.x == current_pos.x and
+                                new_pos.y == current_pos.y and
+                                new_pos.z == current_pos.z
                             )
-                            if not new_equal_old then
-                                set_hunter_position(last_hunter_position)
+                            if not no_update then
+                                set_hunter_position(new_pos)
                                 position_changed = true
                             end
                         end
@@ -497,8 +528,15 @@ re.on_draw_ui(function()
                     imgui.tree_pop()
                 end
                 changed, config.global_motion_config.speed_type = imgui.combo("Speed Type", config.global_motion_config.speed_type, speed_types)
-                changed, config.global_motion_config.block_original_move = imgui.checkbox("Block Original Move", config.global_motion_config.block_original_move)
-                
+
+                imgui.begin_table("Block Original Move", 2)
+                imgui.table_next_row()
+                imgui.table_next_column()
+                changed, config.global_motion_config.block_original_move = imgui.checkbox("Block Original Move XZ", config.global_motion_config.block_original_move)
+                imgui.table_next_column()
+                changed, config.global_motion_config.block_original_move_y = imgui.checkbox("Block Original Move Y", config.global_motion_config.block_original_move_y)
+                imgui.end_table()
+
                 imgui.tree_pop()
             end
             
@@ -574,6 +612,7 @@ re.on_draw_ui(function()
                                     segment.start_frame = segment.start_frame or 0
                                     segment.end_frame = segment.end_frame or 0
                                     segment.block_original_move = segment.block_original_move or false
+                                    segment.block_original_move_y = segment.block_original_move_y or false
                                     segment.direction_vector = segment.direction_vector or {0, 0, 1.0}
 
                                     if imgui.tree_node("Segment " .. tostring(segment_idx)) then
@@ -589,7 +628,14 @@ re.on_draw_ui(function()
                                         changed, segment.direction_type = imgui.combo("Direction Type", segment.direction_type, direction_types)
                                         imgui_vec3(segment.direction_vector)
                                         changed, segment.speed_type = imgui.combo("Speed Type", segment.speed_type, speed_types)
-                                        changed, segment.block_original_move = imgui.checkbox("Block Original Move", segment.block_original_move)
+                                        
+                                        imgui.begin_table("Block Original Move", 2)
+                                        imgui.table_next_row()
+                                        imgui.table_next_column()
+                                        changed, segment.block_original_move = imgui.checkbox("Block Original Move XZ", segment.block_original_move)
+                                        imgui.table_next_column()
+                                        changed, segment.block_original_move_y = imgui.checkbox("Block Original Move Y", segment.block_original_move_y)
+                                        imgui.end_table()
                                         
                                         if #motion_config.segments > 1 then
                                             if imgui.button("Remove Segment") then
