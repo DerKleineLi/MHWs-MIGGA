@@ -21,6 +21,7 @@ local config = {
     recall_kinsect = true,
     enemy_step_direction_fix = true,
     fall_direction_fix = true,
+    trigger_on_everything = false,
 }
 
 merge_tables(config, saved_config)
@@ -32,6 +33,16 @@ re.on_config_save(
 )
 
 -- helper functions
+function contains_token(haystack, needle)
+    local needle_lower = needle:lower()
+    for token in string.gmatch(haystack, "[^|]+") do
+        if token:lower() == needle_lower then
+            return true
+        end
+    end
+    return false
+end
+
 local function get_hunter()
     local player_manager = sdk.get_managed_singleton("app.PlayerManager")
     if not player_manager then return nil end
@@ -297,8 +308,15 @@ sdk.hook(sdk.find_type_definition("app.cHunterWp10Handling"):get_method("doOnHit
     if not this_hunter then return end
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
 
-    should_jump = in_thrust
-    should_kinsect_out = in_thrust
+    local hit_info = sdk.to_managed_object(args[3])
+    if not hit_info then return end
+    local damage_owner = hit_info:get_field("<DamageOwner>k__BackingField")
+    local damage_owner_tag = damage_owner:get_Tag()
+    local is_shell = contains_token(damage_owner_tag, "Shell")
+    local is_enemy = contains_token(damage_owner_tag, "Enemy")
+
+    should_jump = in_thrust and (config.trigger_on_everything or (not is_shell and is_enemy))
+    should_kinsect_out = should_jump
     if should_kinsect_out then
         kinsect_pre_recall = false
     end
@@ -329,6 +347,7 @@ re.on_draw_ui(function()
         changed, config.recall_kinsect = imgui.checkbox("Recall Kinsect", config.recall_kinsect)
         changed, config.enemy_step_direction_fix = imgui.checkbox("Enemy Step Direction Fix", config.enemy_step_direction_fix)
         changed, config.fall_direction_fix = imgui.checkbox("Fall Direction Fix", config.fall_direction_fix)
+        changed, config.trigger_on_everything = imgui.checkbox("Trigger on Everything", config.trigger_on_everything)
         imgui.tree_pop()
     end
 end)
