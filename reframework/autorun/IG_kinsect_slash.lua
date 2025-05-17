@@ -18,10 +18,13 @@ local saved_config = json.load_file("IG_kinsect_slash.json") or {}
 
 local config = {
     enabled = true,
-    recall_kinsect = true,
+    recall_kinsect_tripple_up = true,
+    recall_kinsect_no_tripple_up = true,
     enemy_step_direction_fix = true,
     fall_direction_fix = true,
     trigger_on_everything = false,
+    unlimited_jump = false,
+    motion_value = 0, -- to be added
 }
 
 merge_tables(config, saved_config)
@@ -50,6 +53,13 @@ local function get_hunter()
     if not player_info then return nil end
     local hunter_character = player_info:get_Character()
     return hunter_character
+end
+
+local function get_wp()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    local wp = hunter:get_WeaponHandling()
+    return wp
 end
 
 local function get_kinsect()
@@ -191,6 +201,8 @@ re.on_frame(function()
     if not config.enabled then return end
     local motion = get_motion()
     if not motion then return end
+    local Wp10Handling = get_wp()
+    if not Wp10Handling then return end
     
     in_thrust = motion.MotionBankID == 20 and motion.MotionID == 466
     in_kinsect_slash_jump = in_kinsect_slash_jump and motion.MotionBankID == 20 and motion.MotionID == 193
@@ -199,7 +211,7 @@ re.on_frame(function()
     end
     local kinsect = get_kinsect()
     local kinsect_on_arm = kinsect:get_field("<IsArmConst>k__BackingField")
-    should_jump = should_jump and in_thrust
+    should_jump = should_jump and in_thrust and (config.unlimited_jump or Wp10Handling:checkEnableEnemyStepCount())
     R1_released = (R1_released or (not key_R1_down)) and in_thrust
 
     if should_jump then
@@ -219,7 +231,9 @@ re.on_frame(function()
             should_kinsect_out = false
             kinsect_pre_recall = false
         elseif not kinsect_pre_recall then
-            if config.recall_kinsect then
+            local is_tripple_up = Wp10Handling:get_IsTrippleUp()
+            local recall_kinsect = config.recall_kinsect_tripple_up and is_tripple_up or config.recall_kinsect_no_tripple_up and not is_tripple_up
+            if recall_kinsect then
                 change_kinsect_action(0, 17) -- call back
                 kinsect_pre_recall = true
             else
@@ -344,10 +358,12 @@ re.on_draw_ui(function()
 
     if imgui.tree_node("Insect Glaive Kinsect Slash") then
         changed, config.enabled = imgui.checkbox("Enabled", config.enabled)
-        changed, config.recall_kinsect = imgui.checkbox("Recall Kinsect", config.recall_kinsect)
+        changed, config.recall_kinsect_tripple_up = imgui.checkbox("Recall Kinsect Tripple Up", config.recall_kinsect_tripple_up)
+        changed, config.recall_kinsect_no_tripple_up = imgui.checkbox("Recall Kinsect No Tripple Up", config.recall_kinsect_no_tripple_up)
         changed, config.enemy_step_direction_fix = imgui.checkbox("Enemy Step Direction Fix", config.enemy_step_direction_fix)
         changed, config.fall_direction_fix = imgui.checkbox("Fall Direction Fix", config.fall_direction_fix)
         changed, config.trigger_on_everything = imgui.checkbox("Trigger on Everything", config.trigger_on_everything)
+        changed, config.unlimited_jump = imgui.checkbox("Unlimited Jump", config.unlimited_jump)
         imgui.tree_pop()
     end
 end)
