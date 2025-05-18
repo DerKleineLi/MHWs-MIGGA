@@ -1,4 +1,7 @@
 -- config
+local config_file = "OmniMove.json"
+local preset_dir = "OmniMovePresets\\\\"
+
 local function merge_tables(t1, t2)
     if type(t1) ~= "table" or type(t2) ~= "table" then return end
     for k, v in pairs(t2) do
@@ -10,7 +13,7 @@ local function merge_tables(t1, t2)
     end
 end
 
-local saved_config = json.load_file("OmniMove.json") or {}
+local saved_config = json.load_file(config_file) or {}
 
 local config = {
     enabled = true,
@@ -23,7 +26,7 @@ local config = {
         end_frame = 0,
         direction_type = 1, -- Omni
         speed_type = 1, -- LStick
-        block_original_move = false, -- block original move XZ
+        block_original_move_xz = false, -- block original move XZ
         block_original_move_y = false, -- block original move Y
         direction_vector = {0, 0, 1.0}, -- front
     },
@@ -32,12 +35,15 @@ local config = {
 
 merge_tables(config, saved_config)
 
-local preset_configs = {
-    default = {
+local function get_empty_preset_config()
+    return {
         enabled = true,
         motion_configs = {},
         deleted = false,
     }
+end
+local preset_configs = {
+    default = get_empty_preset_config()
 }
 
 local function get_stem(path)
@@ -70,15 +76,11 @@ function spairs(t, comp)
 end
 
 local function load_preset_configs()
-    local preset_files = fs.glob("OmniMovePresets\\\\.*json")
+    local preset_files = fs.glob(preset_dir .. ".*\\.json$")
     for _, file in ipairs(preset_files) do
         local preset_name = get_stem(file)
         local preset_config = json.load_file(file)
-        preset_configs[preset_name] = preset_configs[preset_name] or {
-            enabled = true,
-            motion_configs = {},
-            deleted = false,
-        }
+        preset_configs[preset_name] = preset_configs[preset_name] or get_empty_preset_config()
         merge_tables(preset_configs[preset_name], preset_config)
         if preset_configs[preset_name].deleted then
             preset_configs[preset_name] = nil
@@ -95,7 +97,7 @@ local function get_empty_segment_config()
         end_frame = 1000,
         direction_type = 1, -- 1: Omni, 2: Aligned, 3: Camera, 4: Camera3D_Omni, 5: Camera3D_Aligned, 6: Hunter
         speed_type = 1, -- 1: LStick, 2: LStick Trigger, 3: Fixed
-        block_original_move = false, 
+        block_original_move_xz = false, 
         block_original_move_y = false, 
         direction_vector = {0, 0, 1.0}, 
     }
@@ -127,7 +129,7 @@ end
 
 re.on_config_save(
     function()
-        json.dump_file("OmniMove.json", config)
+        json.dump_file(config_file, config)
     end
 )
 
@@ -407,7 +409,7 @@ re.on_application_entry("UpdateMotionFrame", function()
                         if last_hunter_position then
                             local current_pos = hunter_transform.position
                             local new_pos = Vector3f.new(current_pos.x, current_pos.y, current_pos.z)
-                            if target_config.block_original_move then
+                            if target_config.block_original_move_xz then
                                 new_pos.x = last_hunter_position.x
                                 new_pos.z = last_hunter_position.z
                             end
@@ -532,7 +534,7 @@ re.on_draw_ui(function()
                 imgui.begin_table("Block Original Move", 2)
                 imgui.table_next_row()
                 imgui.table_next_column()
-                changed, config.global_motion_config.block_original_move = imgui.checkbox("Block Original Move XZ", config.global_motion_config.block_original_move)
+                changed, config.global_motion_config.block_original_move_xz = imgui.checkbox("Block Original Move XZ", config.global_motion_config.block_original_move_xz)
                 imgui.table_next_column()
                 changed, config.global_motion_config.block_original_move_y = imgui.checkbox("Block Original Move Y", config.global_motion_config.block_original_move_y)
                 imgui.end_table()
@@ -611,7 +613,7 @@ re.on_draw_ui(function()
                                     segment.speed_type = segment.speed_type or 1
                                     segment.start_frame = segment.start_frame or 0
                                     segment.end_frame = segment.end_frame or 0
-                                    segment.block_original_move = segment.block_original_move or false
+                                    segment.block_original_move_xz = segment.block_original_move_xz or false
                                     segment.block_original_move_y = segment.block_original_move_y or false
                                     segment.direction_vector = segment.direction_vector or {0, 0, 1.0}
 
@@ -632,7 +634,7 @@ re.on_draw_ui(function()
                                         imgui.begin_table("Block Original Move", 2)
                                         imgui.table_next_row()
                                         imgui.table_next_column()
-                                        changed, segment.block_original_move = imgui.checkbox("Block Original Move XZ", segment.block_original_move)
+                                        changed, segment.block_original_move_xz = imgui.checkbox("Block Original Move XZ", segment.block_original_move_xz)
                                         imgui.table_next_column()
                                         changed, segment.block_original_move_y = imgui.checkbox("Block Original Move Y", segment.block_original_move_y)
                                         imgui.end_table()
@@ -667,14 +669,14 @@ re.on_draw_ui(function()
                     changed, UI_vars.preset_save_as = imgui.input_text("Save As", UI_vars.preset_save_as)
 
                     if imgui.button("Save Preset") then
-                        json.dump_file("OmniMovePresets\\\\" .. UI_vars.preset_save_as .. ".json", preset_config)
+                        json.dump_file(preset_dir .. UI_vars.preset_save_as .. ".json", preset_config)
                         any_changed = true
                     end
 
                     if preset_name ~= "default" then
                         if imgui.button("Delete Preset") then
                             preset_config.deleted = true
-                            json.dump_file("OmniMovePresets\\\\" .. preset_name .. ".json", preset_config)
+                            json.dump_file(preset_dir .. preset_name .. ".json", preset_config)
                             any_changed = true
                         end
                     end
