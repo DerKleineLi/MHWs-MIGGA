@@ -224,7 +224,7 @@ re.on_draw_ui(function()
                             local motion_id_str = motion_config.name .. " (" .. key .. ")"
                             if imgui.tree_node(motion_id_str) then
                                 changed, motion_config.enabled = imgui.checkbox("Enabled", motion_config.enabled)
-                                changed, motion_config.motion_value = imgui.drag_float("Motion Value", motion_config.motion_value, 0.01, -100, 1000.0, "%.2f")
+                                changed, motion_config.motion_value = imgui.drag_float("Motion Value", motion_config.motion_value, 0.01, 0.0, 1000.0, "%.2f")
 
                                 if imgui.button("Remove Motion") then
                                     motion_configs[key] = nil
