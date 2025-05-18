@@ -1,0 +1,12 @@
+{
+    "deleted": false,
+    "enabled": true,
+    "motion_configs": {
+        "10_MasterPlayer_27": {
+            "enabled": true,
+            "motion_value": 30.0,
+            "name": "IG_air_focus_strike_00",
+            "preset_id": 2
+        }
+    }
+}

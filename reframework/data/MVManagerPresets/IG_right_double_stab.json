@@ -1,0 +1,18 @@
+{
+    "deleted": false,
+    "enabled": true,
+    "motion_configs": {
+        "10_MasterPlayer_16": {
+            "enabled": true,
+            "motion_value": 14.0,
+            "name": "IG_right_double_stab_00",
+            "preset_name": "default"
+        },
+        "10_MasterPlayer_17": {
+            "enabled": true,
+            "motion_value": 28.0,
+            "name": "IG_right_double_stab_01",
+            "preset_name": "default"
+        }
+    }
+}
