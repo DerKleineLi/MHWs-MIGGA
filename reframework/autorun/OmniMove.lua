@@ -457,7 +457,7 @@ end)
 local UI_preset_table = {}
 local function update_UI_preset_table()
     for preset_name, preset_config in pairs(preset_configs) do
-        default_UI_table = {
+        local default_UI_table = {
             motion_bank_id_to_add = 0,
             motion_id_to_add = 0,
             is_submotion_to_add = false,
