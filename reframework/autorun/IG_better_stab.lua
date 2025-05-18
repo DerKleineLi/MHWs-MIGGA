@@ -186,9 +186,9 @@ local DIR_STATE = {
     D = 4,
 }
 
-local xy_stack = {}
-local world_dir_stack = {}
-local max_stack_size = 10
+local xy_queue = {}
+local world_dir_queue = {}
+local max_queue_size = 10
 local time_threshold = 0.5
 
 function determine_direction(x_ref, z_ref, x_input, z_input)
@@ -234,8 +234,8 @@ end
 local function hotkey_maintainer()
     local input = get_input()
     if not input then return end
-    -- xy_stack
-    local last_xy = xy_stack[#xy_stack]
+    -- xy_queue
+    local last_xy = xy_queue[#xy_queue]
     local last_xy_state = last_xy and last_xy.state or nil
     local new_xy_state = nil
     local x, y = input.virtual_lstick.x, input.virtual_lstick.y
@@ -252,16 +252,16 @@ local function hotkey_maintainer()
     end
     if new_xy_state then
         if new_xy_state ~= last_xy_state then
-            table.insert(xy_stack, {state = new_xy_state, time = os.clock()})
+            table.insert(xy_queue, {state = new_xy_state, time = os.clock()})
         else
             -- last_xy.time = os.clock()
         end
     end
-    if #xy_stack > max_stack_size then
-        table.remove(xy_stack, 1)
+    if #xy_queue > max_queue_size then
+        table.remove(xy_queue, 1)
     end
-    -- world_dir_stack
-    local last_world_dir = world_dir_stack[#world_dir_stack]
+    -- world_dir_queue
+    local last_world_dir = world_dir_queue[#world_dir_queue]
     local last_world_dir_state = last_world_dir and last_world_dir.state or nil
     local new_world_dir_state = nil
     local ref_dir = get_hunter_transform().forward
@@ -275,13 +275,13 @@ local function hotkey_maintainer()
     end
     if new_world_dir_state then
         if new_world_dir_state ~= last_world_dir_state then
-            table.insert(world_dir_stack, {state = new_world_dir_state, time = os.clock()})
+            table.insert(world_dir_queue, {state = new_world_dir_state, time = os.clock()})
         else
             -- last_world_dir.time = os.clock()
         end
     end
-    if #world_dir_stack > max_stack_size then
-        table.remove(world_dir_stack, 1)
+    if #world_dir_queue > max_queue_size then
+        table.remove(world_dir_queue, 1)
     end
 end
 
@@ -290,9 +290,9 @@ local function get_is_back_forward()
     if not input then return false end
     local stack_to_check = nil
     if input.is_aim then
-        stack_to_check = xy_stack
+        stack_to_check = xy_queue
     else
-        stack_to_check = world_dir_stack
+        stack_to_check = world_dir_queue
     end
     if #stack_to_check == 0 then return false end
     local found_forward = false
