@@ -24,7 +24,6 @@ local config = {
     fall_direction_fix = true,
     trigger_on_everything = false,
     unlimited_jump = false,
-    motion_value = 0, -- to be added
 }
 
 merge_tables(config, saved_config)
@@ -203,13 +202,14 @@ re.on_frame(function()
     if not motion then return end
     local Wp10Handling = get_wp()
     if not Wp10Handling then return end
+    local kinsect = get_kinsect()
+    if not kinsect then return end
     
     in_thrust = motion.MotionBankID == 20 and motion.MotionID == 466
     in_kinsect_slash_jump = in_kinsect_slash_jump and motion.MotionBankID == 20 and motion.MotionID == 193
     if not (motion.MotionBankID == 20 and motion.MotionID == 190) then
         in_kinsect_slash_fall = 0
     end
-    local kinsect = get_kinsect()
     local kinsect_on_arm = kinsect:get_field("<IsArmConst>k__BackingField")
     should_jump = should_jump and in_thrust and (config.unlimited_jump or Wp10Handling:checkEnableEnemyStepCount())
     R1_released = (R1_released or (not key_R1_down)) and in_thrust
@@ -335,6 +335,7 @@ sdk.hook(sdk.find_type_definition("app.cHunterWp10Handling"):get_method("doOnHit
         kinsect_pre_recall = false
     end
 end)
+
 
 
 -- app.Wp10Insect.evAttackPreProcess(app.HitInfo)
