@@ -4,9 +4,262 @@
     "motion_configs": {
         "10_MasterPlayer_27": {
             "enabled": true,
-            "motion_value": 30.0,
             "name": "IG_air_focus_strike_00",
-            "preset_id": 2
+            "preset_id": 1,
+            "properties": {
+                "ActionType": {
+                    "enabled": false,
+                    "value": 1
+                },
+                "Attack": {
+                    "enabled": true,
+                    "value": 30.0
+                },
+                "AttackAttr": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttackCond": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttrLevel": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttrValue": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "BlastDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "BleedDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "CaptureDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "CriticaType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "CustomKireajiReduce": {
+                    "enabled": false,
+                    "value": 10
+                },
+                "DamageAngle": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "DamageType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "DamageTypeCustom": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "DefenceDownDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FixAttack": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FlagBit": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "FreezeDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FrenzyDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FriendDamageType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "GeneralValue1": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "GeneralValue2": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "GeneralValue3": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "HealValue": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "HitEffectType": {
+                    "enabled": false,
+                    "value": 3
+                },
+                "HitStopIgnoreResponse": {
+                    "enabled": false,
+                    "value": false
+                },
+                "HitStopTypeFixed": {
+                    "enabled": false,
+                    "value": -373688000
+                },
+                "IgnoreRecoil": {
+                    "enabled": false,
+                    "value": true
+                },
+                "IsCustomKireajiReduce": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsDisableHitStop": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsForceUseKireajiAttackRate": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsNoCritical": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsNoUseKireaji": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsPointAttack": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsPrePointHitReaction": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsRawScarLimit": {
+                    "enabled": false,
+                    "value": true
+                },
+                "IsSkillHien": {
+                    "enabled": false,
+                    "value": true
+                },
+                "IsWeakPointLimit": {
+                    "enabled": false,
+                    "value": true
+                },
+                "Kireaji": {
+                    "enabled": false,
+                    "value": 3
+                },
+                "MultiHitTimer": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "NoDamageReaction": {
+                    "enabled": false,
+                    "value": false
+                },
+                "OldScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "ParryDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "PartsBreakRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "PoisonDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "RawScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "RideDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "SleepDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "SpecialType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "StageDamageExID": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "StageDamageOld": {
+                    "enabled": false,
+                    "value": 16.0
+                },
+                "StageDamageType": {
+                    "enabled": false,
+                    "value": 2
+                },
+                "StaminaDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "StatusAttrRate": {
+                    "enabled": false,
+                    "value": 0.800000011920929
+                },
+                "StatusConditionRate": {
+                    "enabled": false,
+                    "value": 0.800000011920929
+                },
+                "StenchDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "StunDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "TearScarCreateRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "TearScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "UseSkillAdditionalDamage": {
+                    "enabled": false,
+                    "value": false
+                },
+                "UseSkillContinuousAttack": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseStatusAttackPower": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseStatusAttrPower": {
+                    "enabled": false,
+                    "value": true
+                }
+            }
         }
     }
 }
