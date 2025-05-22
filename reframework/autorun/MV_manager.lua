@@ -1283,6 +1283,13 @@ sdk.hook( -- credits to kmyx
     end, nil
 )
 
+-- change weapon
+-- app.mcHunterWeaponBuilder.app.mcHunterWeaponBuilder.updateRegularWp(System.Boolean)
+sdk.hook(sdk.find_type_definition("app.mcHunterWeaponBuilder.app.mcHunterWeaponBuilder"):get_method("updateRegularWp(System.Boolean)"),
+function(args)
+    should_set_colliders = true
+end, nil)
+
 -- ui
 local UI_preset_table = {}
 local function update_UI_preset_table()
