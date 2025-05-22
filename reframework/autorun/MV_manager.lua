@@ -1284,8 +1284,8 @@ sdk.hook( -- credits to kmyx
 )
 
 -- change weapon
--- app.mcHunterWeaponBuilder.app.mcHunterWeaponBuilder.updateRegularWp(System.Boolean)
-sdk.hook(sdk.find_type_definition("app.mcHunterWeaponBuilder.app.mcHunterWeaponBuilder"):get_method("updateRegularWp(System.Boolean)"),
+-- app.mcHunterWeaponBuilder.updateRegularWp(System.Boolean)
+sdk.hook(sdk.find_type_definition("app.mcHunterWeaponBuilder"):get_method("updateRegularWp(System.Boolean)"),
 function(args)
     should_set_colliders = true
 end, nil)
