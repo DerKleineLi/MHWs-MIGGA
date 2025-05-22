@@ -401,6 +401,18 @@ local lookup_table = {
         type = "app.HitDef.DAMAGE_ANGLE",
     },
     {
+        name = "MultiHitRateCurve",
+        description = nil,
+        varname = "_MultiHitRateCurve",
+        type = "nullable",
+    },
+    {
+        name = "MultiHitStatusRateCurve",
+        description = nil,
+        varname = "_MultiHitStatusRateCurve",
+        type = "nullable",
+    },
+    {
         name = "AttackAttr",
         description = nil,
         varname = "_AttackAttr",
@@ -548,6 +560,14 @@ local enum_table = {
     ["app.HitDef.STAGE_DAMAGE_EX_ID"] = get_enum("app.HitDef.STAGE_DAMAGE_EX_ID"),
 }
 
+local function add_to_enum(enum, key, value)
+    local field_value_name = string.format("%d - %s", key, value)
+    enum.id2name[key] = field_value_name
+    enum.idpp2name[key + 1] = field_value_name
+    enum.name2id[field_value_name] = key
+end
+add_to_enum(enum_table["app.col_user_data.AttackParam.FLAG_BIT"], 3, "USE_MULIT_HIT|IGNORE_PARTS_PRIORITY")
+
 local enum_fixed_table = {
     ["app.PlayerDef.HIT_STOP_TYPE_Fixed"] = get_enum_fixed("app.PlayerDef.HIT_STOP_TYPE", "app.PlayerDef.HIT_STOP_TYPE_Fixed"),
 }
@@ -581,6 +601,8 @@ local function get_empty_motion_config()
             property_config.value = false
         elseif value_type == "int" then
             property_config.value = 0
+        elseif value_type == "nullable" then
+            property_config.value = true
         elseif enum_table[value_type] then
             property_config.value = 0
         elseif enum_fixed_table[value_type] then
@@ -616,6 +638,7 @@ local function get_empty_preset_config()
     return {
         enabled = true,
         motion_configs = {},
+        default_colliders = {},
         deleted = false,
     }
 end
@@ -704,11 +727,19 @@ local function get_motion_config(key)
             motion_config.name = preset.motion_configs[key].name
             motion_config.preset_id = preset_idxs[preset_name]
             merge_motion_config_properties(motion_config.properties, preset.motion_configs[key].properties)
-            break
         end
         ::continue::
     end
     return motion_config
+end
+
+local function get_default_collider(key)
+    for preset_name, preset in pairs(preset_configs) do
+        if preset.default_colliders[key] then
+            return preset.default_colliders[key]
+        end
+    end
+    return nil
 end
 
 re.on_config_save(
@@ -719,10 +750,82 @@ re.on_config_save(
 
 
 -- helper functions
-function tooltip(text)
+local function copy_table(t)
+    local copy = {}
+    for k, v in pairs(t) do
+        if type(v) == "table" then
+            copy[k] = copy_table(v)
+        else
+            copy[k] = v
+        end
+    end
+    return copy
+end
+
+local function tooltip(text) -- credits to Bimmr
     imgui.same_line()
     imgui.text("(?)")
     if imgui.is_item_hovered() then imgui.set_tooltip("  "..text.."  ") end
+end
+
+local function get_hunter()
+    local player_manager = sdk.get_managed_singleton("app.PlayerManager")
+    if not player_manager then return nil end
+    local player_info = player_manager:getMasterPlayer()
+    if not player_info then return nil end
+    local hunter_character = player_info:get_Character()
+    return hunter_character
+end
+
+local function get_wp()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    local wp = hunter:get_Weapon()
+    return wp
+end
+
+local function get_wp_type()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    return hunter:get_WeaponType()
+end
+
+local function get_wp_colliders()
+    local wp = get_wp()
+    if not wp then return nil end
+    local wp_collider = wp:get_RequestSetCollider()
+    if not wp_collider then return nil end
+    local output = {}
+    local group_count = wp_collider:getRequestSetGroupsCount()
+    for i = 0, group_count - 1 do
+        output[i] = {}
+        local num_request_sets = wp_collider:getNumRequestSets(i)
+        for j = 0, num_request_sets - 1 do
+            output[i][j] = {}
+            local num_collidables = wp_collider:getNumCollidables(i, j)
+            for k = 0, num_collidables - 1 do
+                local collidable = wp_collider:getCollidable(i, j, k)
+                output[i][j][k] = collidable
+            end
+        end
+    end
+    return output
+end
+
+local function get_num_collidables(group, set)
+    local wp = get_wp()
+    if not wp then return nil end
+    local wp_collider = wp:get_RequestSetCollider()
+    if not wp_collider then return nil end
+    return wp_collider:getNumCollidables(group, set)
+end
+
+local function get_wp_collider(group, set, col)
+    local wp = get_wp()
+    if not wp then return nil end
+    local wp_collider = wp:get_RequestSetCollider()
+    if not wp_collider then return nil end
+    return wp_collider:getCollidable(group, set, col)
 end
 
 local function get_properties(attack_data)
@@ -732,10 +835,13 @@ local function get_properties(attack_data)
         local ok, value = pcall(function()
             return attack_data:get_field(lookup.varname)
         end)
+        if lookup.type == "nullable" then
+            value = value and true or false
+        end
         if ok and value ~= nil then
             properties[lookup.name] = {enabled = false, value = value}
         else
-            log.debug(string.format("Failed to get property '%s' from attack_data", lookup_table[i].name))
+            log.info(string.format("[MVMamager] Failed to get property '%s' from attack_data", lookup_table[i].name))
         end
     end
     return properties
@@ -745,13 +851,22 @@ local function set_properties(attack_data, properties)
     for i = 1, #lookup_table do
         local lookup = lookup_table[i]
         if properties[lookup.name] and properties[lookup.name].enabled then
+            local value = properties[lookup.name].value
+            if lookup.type == "nullable" then
+                if value then
+                    goto continue
+                else
+                    value = nil
+                end
+            end
             local ok = pcall(function()
-                attack_data:set_field(lookup.varname, properties[lookup.name].value)
+                attack_data:set_field(lookup.varname, value)
             end)
             if not ok then
-                log.debug(string.format("Failed to set property '%s' on attack_data", lookup.name))
+                log.info(string.format("[MVManager] Failed to set property '%s' on attack_data", lookup.name))
             end
         end
+        ::continue::
     end
 end
 
@@ -768,6 +883,8 @@ local function show_properties(properties)
             imgui.text(string.format("%s: %s", lookup.name, properties[lookup.name].value and "true" or "false"))
         elseif value_type == "int" then
             imgui.text(string.format("%s: %d", lookup.name, properties[lookup.name].value))
+        elseif value_type == "nullable" then
+            imgui.text(string.format("%s: %s", lookup.name, properties[lookup.name].value and "true" or "false"))
         elseif enum_table[value_type] then
             local enum = enum_table[value_type]
             local value = properties[lookup.name].value
@@ -804,6 +921,9 @@ local function ui_properties(properties)
             changed, properties[lookup.name].value = imgui.checkbox("## value" .. lookup.name, properties[lookup.name].value)
         elseif value_type == "int" then
             changed, properties[lookup.name].value = imgui.drag_int("## value" .. lookup.name, properties[lookup.name].value, 1, lookup.min, lookup.max)
+        elseif value_type == "nullable" then
+            local prefix = properties[lookup.name].value and "Enabled" or "Disabled"
+            changed, properties[lookup.name].value = imgui.checkbox(prefix .. " ## value" .. lookup.name, properties[lookup.name].value)
         elseif enum_table[value_type] then
             local enum = enum_table[value_type]
             local valuepp = properties[lookup.name].value + 1
@@ -829,6 +949,236 @@ local function ui_properties(properties)
     end
 end
 
+local function get_collider_key(weapon_type, group, set, col)
+    if weapon_type == nil or group == nil or set == nil or col == nil then
+        return nil
+    end
+    return string.format("%d_%d_%d_%d", weapon_type, group, set, col)
+end
+
+local function extract_collider_properties(collidable, output)
+    output = output or {}
+    local shape = collidable:get_Shape()
+    local shape_type = shape:get_type_definition():get_full_name()
+    output.shape_type = shape_type
+    if shape_type == "via.physics.ContinuousCapsuleShape" or shape_type == "via.physics.CapsuleShape" then
+        local capsule = shape:get_Capsule()
+        local start_pos = capsule.p0
+        local end_pos = capsule.p1
+        local radius = capsule.r
+        output.start_pos = {enabled=false, value={start_pos.x, start_pos.y, start_pos.z}}
+        output.end_pos = {enabled=false, value={end_pos.x, end_pos.y, end_pos.z}}
+        output.radius = {enabled=false, value=radius}
+    elseif shape_type == "via.physics.ContinuousSphereShape" or shape_type == "via.physics.SphereShape" then
+        local sphere = shape:get_Sphere()
+        local center = sphere.pos
+        local radius = sphere.r
+        output.center = {enabled=false, value={center.x, center.y, center.z}}
+        output.radius = {enabled=false, value=radius}
+    end
+end
+
+local function get_colliders(collidable, active_collider_list, weapon_type)
+    local output = {}
+
+    local found = false
+    local active_colliders = {}
+    for i = 1, #active_collider_list do
+        local active_group_id, active_set_id = active_collider_list[i].group, active_collider_list[i].set
+        -- local active_collider_set = wp_colliders[active_group_id][active_set_id]
+        local num_collidables = get_num_collidables(active_group_id, active_set_id)
+        for k = 0, num_collidables - 1 do
+            local collider = get_wp_collider(active_group_id, active_set_id, k)
+            active_colliders[#active_colliders + 1] = {
+                weapon_type = weapon_type,
+                group = active_group_id,
+                set = active_set_id,
+                col = k,
+                collider = collider,
+            }
+            if collider == collidable then
+                found = true
+            end
+        end
+    end
+    if not found then
+        output[1] = {
+            weapon_type = weapon_type,
+            group = nil,
+            set = nil,
+            col = nil,
+            enabled = false,
+        }
+        extract_collider_properties(collidable, output[1])
+    else
+        for i = 1, #active_colliders do
+            local active_collider = active_colliders[i]
+            local key = get_collider_key(weapon_type, active_collider.group, active_collider.set, active_collider.col)
+            local default_collider = get_default_collider(key)
+            if default_collider then 
+                output[i] = default_collider 
+            else
+                output[i] = {
+                    weapon_type = active_collider.weapon_type,
+                    group = active_collider.group,
+                    set = active_collider.set,
+                    col = active_collider.col,
+                    enabled = false,
+                }
+                extract_collider_properties(active_collider.collider, output[i])
+            end
+        end
+    end
+    return output
+end
+
+local function set_collider(collider_config, force)
+    local function vec3(val)
+        return Vector3f.new(val[1], val[2], val[3])
+    end
+    local collider = get_wp_collider(collider_config.group, collider_config.set, collider_config.col)
+    local shape = collider:get_Shape()
+    local shape_type = collider_config.shape_type
+    if shape_type == "via.physics.ContinuousCapsuleShape" or shape_type == "via.physics.CapsuleShape" then
+        local capsule = shape:get_Capsule()
+        if collider_config.start_pos.enabled or force then
+            capsule:set_field("p0", vec3(collider_config.start_pos.value))
+        end
+        if collider_config.end_pos.enabled or force then
+            capsule:set_field("p1", vec3(collider_config.end_pos.value))
+        end
+        if collider_config.radius.enabled or force then
+            capsule:set_field("r", collider_config.radius.value)
+        end
+        shape:set_Capsule(capsule)
+    elseif shape_type == "via.physics.ContinuousSphereShape" or shape_type == "via.physics.SphereShape" then
+        local sphere = shape:get_Sphere()
+        if collider_config.center.enabled or force then
+            sphere:set_field("pos", vec3(collider_config.center.value))
+        end
+        if collider_config.radius.enabled or force then
+            sphere:set_field("r", collider_config.radius.value)
+        end
+        shape:set_Sphere(sphere)
+    end
+
+    collider:set_Shape(shape)
+end
+
+local function set_colliders()
+    local preset_managed_colliders = {}
+    for preset_name, preset in pairs(preset_configs) do
+        for _, motion_config in pairs(preset.motion_configs) do
+            local weapon_type = motion_config.weapon_type
+            if weapon_type ~= get_wp_type() then goto continue end
+            for _, collider_config in spairs(motion_config.colliders) do
+                if not collider_config or collider_config.group == nil then goto continue1 end
+                local enabled = config.enabled and preset.enabled and motion_config.enabled and collider_config.enabled
+                local key = get_collider_key(weapon_type, collider_config.group, collider_config.set, collider_config.col)
+                if not enabled and preset_managed_colliders[key] then goto continue1 end
+                collider_config = enabled and collider_config or get_default_collider(key)
+                -- log.debug("setting: " .. key .. " Default:" .. tostring(not enabled))
+                set_collider(collider_config, not enabled)
+                if enabled then preset_managed_colliders[key] = true end
+                ::continue1::
+            end
+            ::continue::
+        end
+    end
+end
+
+local function show_colliders(hit_data)
+    local colliders = hit_data.colliders
+    if not colliders then return end
+    for i, collider in spairs(colliders) do
+        if not collider then goto continue end
+        local id_text = ""
+        if collider.group == nil or collider.set == nil or collider.col == nil then
+            id_text = "Unsupported collider"
+        else
+            id_text = get_collider_key(hit_data.weapon_type, collider.group, collider.set, collider.col)
+        end
+        if imgui.tree_node(tostring(i) .. " - " .. collider.shape_type .. " (" .. id_text .. ")") then
+            if collider then
+                local shape_type = collider.shape_type
+                imgui.text(string.format("Type: %s", shape_type))
+                if shape_type == "via.physics.ContinuousCapsuleShape" or shape_type == "via.physics.CapsuleShape" then
+                    local start_pos = collider.start_pos.value
+                    local end_pos = collider.end_pos.value
+                    local radius = collider.radius.value
+                    imgui.text(string.format("Start: %.2f, %.2f, %.2f", start_pos[1], start_pos[2], start_pos[3]))
+                    imgui.text(string.format("End: %.2f, %.2f, %.2f", end_pos[1], end_pos[2], end_pos[3]))
+                    imgui.text(string.format("Radius: %.2f", radius))
+                elseif shape_type == "via.physics.ContinuousSphereShape" or shape_type == "via.physics.SphereShape" then
+                    local center = collider.center.value
+                    local radius = collider.radius.value
+                    imgui.text(string.format("Center: %.2f, %.2f, %.2f", center[1], center[2], center[3]))
+                    imgui.text(string.format("Radius: %.2f", radius))
+                end
+            end
+            imgui.tree_pop()
+        end
+        ::continue::
+    end
+end
+
+local function ui_colliders(colliders)
+    local function imgui_vec3(config_var, label)
+        local vec3 = Vector3f.new(config_var[1], config_var[2], config_var[3])
+        changed, vec3 = imgui.drag_float3(label, vec3, 0.01, -100.0, 100.0)
+        config_var[1] = vec3.x
+        config_var[2] = vec3.y
+        config_var[3] = vec3.z
+        return changed
+    end
+    if not colliders then return false end
+    local changed, any_changed = false, false
+    for i, collider in spairs(colliders) do
+        if not collider then goto continue end
+        local id_text = get_collider_key(collider.weapon_type, collider.group, collider.set, collider.col)
+        if imgui.tree_node(tostring(i) .. " - " .. collider.shape_type .. " (" .. id_text .. ")") then
+            changed, collider.enabled = imgui.checkbox("Enabled: ", collider.enabled)
+            any_changed = any_changed or changed
+            local shape_type = collider.shape_type
+            if shape_type == "via.physics.ContinuousCapsuleShape" or shape_type == "via.physics.CapsuleShape" then
+                changed, collider.start_pos.enabled = imgui.checkbox("Start Position: ", collider.start_pos.enabled)
+                any_changed = any_changed or changed
+                imgui.same_line()
+                changed = imgui_vec3(collider.start_pos.value, "Start Position")
+                any_changed = any_changed or changed
+
+                changed, collider.end_pos.enabled = imgui.checkbox("End Position: ", collider.end_pos.enabled)
+                any_changed = any_changed or changed
+                imgui.same_line()
+                changed = imgui_vec3(collider.end_pos.value, "End Position")
+                any_changed = any_changed or changed
+
+                changed, collider.radius.enabled = imgui.checkbox("Radius: ", collider.radius.enabled)
+                any_changed = any_changed or changed
+                imgui.same_line()
+                changed, collider.radius.value = imgui.drag_float("Radius", collider.radius.value, 0.01, 0.0, 100.0, "%.2f")
+                any_changed = any_changed or changed
+            elseif shape_type == "via.physics.ContinuousSphereShape" or shape_type == "via.physics.SphereShape" then
+                changed, collider.center.enabled = imgui.checkbox("Center: ", collider.center.enabled)
+                any_changed = any_changed or changed
+                imgui.same_line()
+                changed = imgui_vec3(collider.center.value, "Center")
+                any_changed = any_changed or changed
+
+                changed, collider.radius.enabled = imgui.checkbox("Radius: ", collider.radius.enabled)
+                any_changed = any_changed or changed
+                imgui.same_line()
+                changed, collider.radius.value = imgui.drag_float("Radius", collider.radius.value, 0.01, 0.0, 100.0, "%.2f")
+                any_changed = any_changed or changed
+            end
+            imgui.tree_pop()
+        end
+        ::continue::
+    end
+    return any_changed
+end
+
+
 -- core
 local hit_data_queue = {}
 local max_queue_size = 20
@@ -839,11 +1189,29 @@ local function push_queue(hit_data)
     end
 end
 
+local should_set_colliders = true
+local has_reset_collider_list = false
+local active_collider_list = {}
+
+re.on_frame(
+    function()
+        if should_set_colliders then
+            local success = pcall(function()
+                set_colliders()
+            end)
+            if success then
+                log.info("[MVManager] set colliders success")
+                should_set_colliders = false
+            end
+        end
+        has_reset_collider_list = false
+    end
+)
+
 -- on hit
 local function get_key(hit_data)
     return string.format("%d_%s_%d", hit_data.weapon_type, hit_data.attack_owner_name, hit_data.attack_index)
 end
-
 local function hit_pre(args)
     if not config.enabled then return end
     local this = sdk.to_managed_object(args[2])
@@ -860,13 +1228,16 @@ local function hit_pre(args)
         attack_index = hit_info:get_field("<AttackIndex>k__BackingField")._Index,
         attack_owner_name = hit_info:get_field("<AttackOwner>k__BackingField"):get_Name(),
         attack_owner_tag = hit_info:get_field("<AttackOwner>k__BackingField"):get_Tag(),
+        attack_name = attack_data:get_field("_UserData"):get_Name(),
     }
     hit_data.key = get_key(hit_data)
+
     local motion_config = get_motion_config(hit_data.key)
     hit_data.name = motion_config.name
     hit_data.preset_id = motion_config.preset_id
 
     hit_data.properties = get_properties(attack_data)
+    hit_data.colliders = get_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), active_collider_list, hit_data.weapon_type)
 
     push_queue(hit_data)
 
@@ -878,6 +1249,39 @@ end
 sdk.hook(sdk.find_type_definition("app.Wp10Insect"):get_method("evAttackPreProcess(app.HitInfo)"), hit_pre, nil)
 -- app.cHunterWeaponHandlingBase.evHit_AttackPreProcess(app.HitInfo, System.Boolean, System.Boolean)
 sdk.hook(sdk.find_type_definition("app.cHunterWeaponHandlingBase"):get_method("evHit_AttackPreProcess(app.HitInfo, System.Boolean, System.Boolean)"), hit_pre, nil)
+
+-- app.Weapon.evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlWp, ace.MOTION_SEQUENCE_UPDATER_ARGS)
+local in_attack_collision = false
+sdk.hook(sdk.find_type_definition("app.Weapon"):get_method("evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlWp, ace.MOTION_SEQUENCE_UPDATER_ARGS)"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    local this_hunter = this:get_Hunter()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    if not has_reset_collider_list then
+        active_collider_list = {}
+        has_reset_collider_list = true
+    end
+    in_attack_collision = true
+end, function(retval)
+    in_attack_collision = false
+    return retval
+end, nil)
+
+sdk.hook( -- credits to kmyx
+	sdk.find_type_definition("app.ColliderSwitcher"):get_method(
+		"activateAttack(System.Boolean, System.UInt32, System.UInt32, System.Nullable`1<System.Boolean>, app.Hit.HIT_ID_GROUP, System.Nullable`1<System.Single>, System.Nullable`1<System.Single>)"
+	),
+	function(args)
+        if not in_attack_collision then return end
+        local group_index = sdk.to_int64(args[4]) & 0xFFFFFFFF
+		local set_index = sdk.to_int64(args[5]) & 0xFFFFFFFF
+        active_collider_list[#active_collider_list + 1] = {
+            group = group_index,
+            set = set_index,
+        }
+    end, nil
+)
 
 -- ui
 local UI_preset_table = {}
@@ -892,11 +1296,37 @@ local function update_UI_preset_table()
 end
 update_UI_preset_table()
 
+local presets_to_delete = {}
+local presets_to_clear = {}
+local motions_to_delete = {}
 re.on_draw_ui(function()
     local changed, any_changed = false, false
-    
+    if not should_set_colliders then
+        for preset_name, preset_config in pairs(presets_to_delete) do
+            preset_config.deleted = true
+            json.dump_file(preset_dir .. preset_name .. ".json", preset_config)
+            any_changed = true
+        end
+        presets_to_delete = {}
+
+        for preset_name, preset_enabled in pairs(presets_to_clear) do
+            local preset_config = preset_configs[preset_name]
+            preset_config.enabled = preset_enabled
+            preset_config.motion_configs = {}
+            preset_config.default_colliders = {}
+        end
+        presets_to_clear = {}
+
+        for preset_name, motion_key in pairs(motions_to_delete) do
+            local motion_configs = preset_configs[preset_name].motion_configs
+            motion_configs[motion_key] = nil
+        end
+        motions_to_delete = {}
+    end
+
     if imgui.tree_node("Motion Value Manager") then
         changed, config.enabled = imgui.checkbox("Enabled", config.enabled)
+        if changed then should_set_colliders = true end
 
         if imgui.tree_node("Global Motion Config") then
             changed, config.global_motion_config.enabled = imgui.checkbox("Enabled", config.global_motion_config.enabled)
@@ -926,8 +1356,13 @@ re.on_draw_ui(function()
                     imgui.text("Attack Index: " .. hit_data.attack_index)
                     imgui.text("Attack Owner Name: " .. hit_data.attack_owner_name)
                     imgui.text("Attack Owner Tag: " .. hit_data.attack_owner_tag)
+                    imgui.text("Attack Name: " .. hit_data.attack_name)
                     if imgui.tree_node("Default Properties") then
                         show_properties(hit_data.properties)
+                        imgui.tree_pop()
+                    end
+                    if imgui.tree_node("Default Collider") then
+                        show_colliders(hit_data)
                         imgui.tree_pop()
                     end
                     changed, hit_data.name = imgui.input_text("Name", hit_data.name)
@@ -938,6 +1373,10 @@ re.on_draw_ui(function()
                         preset_configs[preset_name].motion_configs[hit_data.key].name = hit_data.name
                         preset_configs[preset_name].motion_configs[hit_data.key].preset_id = hit_data.preset_id
                         preset_configs[preset_name].motion_configs[hit_data.key].enabled = true
+                        preset_configs[preset_name].motion_configs[hit_data.key].weapon_type = hit_data.weapon_type
+                        preset_configs[preset_name].motion_configs[hit_data.key].attack_index = hit_data.attack_index
+                        preset_configs[preset_name].motion_configs[hit_data.key].attack_owner_name = hit_data.attack_owner_name
+                        preset_configs[preset_name].motion_configs[hit_data.key].attack_owner_tag = hit_data.attack_owner_tag
                         local new_properties = preset_configs[preset_name].motion_configs[hit_data.key].properties
                         for key, value in pairs(hit_data.properties) do
                             if not new_properties[key] then
@@ -946,6 +1385,15 @@ re.on_draw_ui(function()
                             end
                             if not new_properties[key].enabled then
                                 new_properties[key].value = value.value
+                            end
+                        end
+                        preset_configs[preset_name].motion_configs[hit_data.key].colliders = {}
+                        for i, collider in spairs(hit_data.colliders) do
+                            if collider.group and collider.set and collider.col then
+                                local collider_key = get_collider_key(hit_data.weapon_type, collider.group, collider.set, collider.col)
+                                preset_configs[preset_name].default_colliders[collider_key] = collider
+                                local new_collider = copy_table(collider)
+                                preset_configs[preset_name].motion_configs[hit_data.key].colliders[i] = new_collider
                             end
                         end
                     end
@@ -961,6 +1409,8 @@ re.on_draw_ui(function()
                     local UI_vars = UI_preset_table[preset_name]
                     local motion_configs = preset_config.motion_configs
                     changed, preset_config.enabled = imgui.checkbox("Enabled", preset_config.enabled)
+                    if changed then should_set_colliders = true end
+
                     if imgui.tree_node("Saved Motions") then
                         for key, motion_config in spairs(motion_configs) do
                             -- make sure motion_config contains all the required fields
@@ -971,10 +1421,21 @@ re.on_draw_ui(function()
                             local motion_id_str = motion_config.name .. " (" .. key .. ")"
                             if imgui.tree_node(motion_id_str) then
                                 changed, motion_config.enabled = imgui.checkbox("Enabled", motion_config.enabled)
-                                ui_properties(motion_config.properties)
+                                if changed then should_set_colliders = true end
+                                if imgui.tree_node("Properties") then
+                                    ui_properties(motion_config.properties)
+                                    imgui.tree_pop()
+                                end
+                                if imgui.tree_node("Colliders") then
+                                    changed = ui_colliders(motion_config.colliders)
+                                    if changed then should_set_colliders = true end
+                                    imgui.tree_pop()
+                                end
 
                                 if imgui.button("Remove Motion") then
-                                    motion_configs[key] = nil
+                                    motions_to_delete[preset_name] = key
+                                    motion_config.enabled = false
+                                    should_set_colliders = true
                                 end
                                 imgui.tree_pop()
                             end
@@ -984,7 +1445,9 @@ re.on_draw_ui(function()
                     end
         
                     if imgui.button("Clear Preset") then
-                        preset_config.motion_configs = {}
+                        presets_to_clear[preset_name] = preset_config.enabled
+                        preset_config.enabled = false
+                        should_set_colliders = true
                     end
 
                     changed, UI_vars.preset_save_as = imgui.input_text("Save As", UI_vars.preset_save_as)
@@ -996,12 +1459,11 @@ re.on_draw_ui(function()
 
                     if preset_name ~= "default" then
                         if imgui.button("Delete Preset") then
-                            preset_config.deleted = true
-                            json.dump_file(preset_dir .. preset_name .. ".json", preset_config)
-                            any_changed = true
+                            preset_config.enabled = false
+                            presets_to_delete[preset_name] = preset_config
+                            should_set_colliders = true
                         end
                     end
-
                     imgui.tree_pop()
                 end
             end
