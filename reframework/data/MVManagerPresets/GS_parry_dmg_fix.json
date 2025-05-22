@@ -1,0 +1,2099 @@
+{
+    "default_colliders": {
+        "0_0_101_0": {
+            "col": 0,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    2.8446649480429187e-07,
+                    0.0,
+                    2.299999952316284
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.6499999761581421
+            },
+            "set": 101,
+            "shape_type": "via.physics.ContinuousCapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_101_1": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    2.0
+                ]
+            },
+            "col": 1,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.550000011920929
+            },
+            "set": 101,
+            "shape_type": "via.physics.ContinuousSphereShape",
+            "weapon_type": 0
+        },
+        "0_0_101_2": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    1.100000023841858
+                ]
+            },
+            "col": 2,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.699999988079071
+            },
+            "set": 101,
+            "shape_type": "via.physics.ContinuousSphereShape",
+            "weapon_type": 0
+        },
+        "0_0_101_3": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    2.5
+                ]
+            },
+            "col": 3,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.5
+            },
+            "set": 101,
+            "shape_type": "via.physics.ContinuousSphereShape",
+            "weapon_type": 0
+        },
+        "0_0_102_0": {
+            "col": 0,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    2.8446649480429187e-07,
+                    0.0,
+                    2.299999952316284
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.6499999761581421
+            },
+            "set": 102,
+            "shape_type": "via.physics.ContinuousCapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_102_1": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    2.0
+                ]
+            },
+            "col": 1,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.550000011920929
+            },
+            "set": 102,
+            "shape_type": "via.physics.ContinuousSphereShape",
+            "weapon_type": 0
+        },
+        "0_0_102_2": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    1.100000023841858
+                ]
+            },
+            "col": 2,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.699999988079071
+            },
+            "set": 102,
+            "shape_type": "via.physics.ContinuousSphereShape",
+            "weapon_type": 0
+        },
+        "0_0_102_3": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    2.5
+                ]
+            },
+            "col": 3,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.5
+            },
+            "set": 102,
+            "shape_type": "via.physics.ContinuousSphereShape",
+            "weapon_type": 0
+        },
+        "0_0_103_0": {
+            "col": 0,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    2.8446649480429187e-07,
+                    0.0,
+                    2.299999952316284
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.6499999761581421
+            },
+            "set": 103,
+            "shape_type": "via.physics.ContinuousCapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_103_1": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    2.0
+                ]
+            },
+            "col": 1,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.550000011920929
+            },
+            "set": 103,
+            "shape_type": "via.physics.ContinuousSphereShape",
+            "weapon_type": 0
+        },
+        "0_0_103_2": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    1.100000023841858
+                ]
+            },
+            "col": 2,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.699999988079071
+            },
+            "set": 103,
+            "shape_type": "via.physics.ContinuousSphereShape",
+            "weapon_type": 0
+        },
+        "0_0_103_3": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    2.5
+                ]
+            },
+            "col": 3,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.5
+            },
+            "set": 103,
+            "shape_type": "via.physics.ContinuousSphereShape",
+            "weapon_type": 0
+        },
+        "0_0_105_0": {
+            "col": 0,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    2.8446649480429187e-07,
+                    0.0,
+                    1.5
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.800000011920929
+            },
+            "set": 105,
+            "shape_type": "via.physics.CapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    -1.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_105_1": {
+            "col": 1,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.10000000149011612
+            },
+            "set": 105,
+            "shape_type": "via.physics.CapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_105_2": {
+            "col": 2,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.10000000149011612
+            },
+            "set": 105,
+            "shape_type": "via.physics.CapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_106_0": {
+            "col": 0,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    2.8446649480429187e-07,
+                    0.0,
+                    1.5
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.800000011920929
+            },
+            "set": 106,
+            "shape_type": "via.physics.CapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    -1.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_106_1": {
+            "col": 1,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.10000000149011612
+            },
+            "set": 106,
+            "shape_type": "via.physics.CapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_106_2": {
+            "col": 2,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.10000000149011612
+            },
+            "set": 106,
+            "shape_type": "via.physics.CapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_107_0": {
+            "col": 0,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    2.8446649480429187e-07,
+                    0.0,
+                    1.5
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.800000011920929
+            },
+            "set": 107,
+            "shape_type": "via.physics.CapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    -1.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_107_1": {
+            "col": 1,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.10000000149011612
+            },
+            "set": 107,
+            "shape_type": "via.physics.CapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_107_2": {
+            "col": 2,
+            "enabled": false,
+            "end_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 0.10000000149011612
+            },
+            "set": 107,
+            "shape_type": "via.physics.CapsuleShape",
+            "start_pos": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "weapon_type": 0
+        },
+        "0_0_110_0": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "col": 0,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 1.0
+            },
+            "set": 110,
+            "shape_type": "via.physics.SphereShape",
+            "weapon_type": 0
+        },
+        "0_0_110_1": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    1.2999999523162842
+                ]
+            },
+            "col": 1,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 1.0
+            },
+            "set": 110,
+            "shape_type": "via.physics.SphereShape",
+            "weapon_type": 0
+        },
+        "0_0_111_0": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "col": 0,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 1.0
+            },
+            "set": 111,
+            "shape_type": "via.physics.SphereShape",
+            "weapon_type": 0
+        },
+        "0_0_111_1": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    1.2999999523162842
+                ]
+            },
+            "col": 1,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 1.0
+            },
+            "set": 111,
+            "shape_type": "via.physics.SphereShape",
+            "weapon_type": 0
+        },
+        "0_0_112_0": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "col": 0,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 1.0
+            },
+            "set": 112,
+            "shape_type": "via.physics.SphereShape",
+            "weapon_type": 0
+        },
+        "0_0_112_1": {
+            "center": {
+                "enabled": false,
+                "value": [
+                    0.0,
+                    0.0,
+                    1.2999999523162842
+                ]
+            },
+            "col": 1,
+            "enabled": false,
+            "group": 0,
+            "radius": {
+                "enabled": false,
+                "value": 1.0
+            },
+            "set": 112,
+            "shape_type": "via.physics.SphereShape",
+            "weapon_type": 0
+        }
+    },
+    "deleted": false,
+    "enabled": true,
+    "motion_configs": {
+        "0_MasterPlayer_37": {
+            "attack_index": 37,
+            "attack_owner_name": "MasterPlayer",
+            "attack_owner_tag": "WorkRateTarget|HasSensorHit|Player",
+            "colliders": [
+                {
+                    "col": 0,
+                    "enabled": true,
+                    "end_pos": {
+                        "enabled": true,
+                        "value": [
+                            2.8446649480429187e-07,
+                            0.0,
+                            1.9500000476837158
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": true,
+                        "value": 1.0
+                    },
+                    "set": 101,
+                    "shape_type": "via.physics.ContinuousCapsuleShape",
+                    "start_pos": {
+                        "enabled": true,
+                        "value": [
+                            0.0,
+                            0.0,
+                            -0.800000011920929
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            2.0
+                        ]
+                    },
+                    "col": 1,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.550000011920929
+                    },
+                    "set": 101,
+                    "shape_type": "via.physics.ContinuousSphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            1.100000023841858
+                        ]
+                    },
+                    "col": 2,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.699999988079071
+                    },
+                    "set": 101,
+                    "shape_type": "via.physics.ContinuousSphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            2.5
+                        ]
+                    },
+                    "col": 3,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.5
+                    },
+                    "set": 101,
+                    "shape_type": "via.physics.ContinuousSphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "col": 0,
+                    "enabled": false,
+                    "end_pos": {
+                        "enabled": false,
+                        "value": [
+                            2.8446649480429187e-07,
+                            0.0,
+                            1.5
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.800000011920929
+                    },
+                    "set": 105,
+                    "shape_type": "via.physics.CapsuleShape",
+                    "start_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            -1.0
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "col": 1,
+                    "enabled": false,
+                    "end_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.10000000149011612
+                    },
+                    "set": 105,
+                    "shape_type": "via.physics.CapsuleShape",
+                    "start_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "col": 2,
+                    "enabled": false,
+                    "end_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.10000000149011612
+                    },
+                    "set": 105,
+                    "shape_type": "via.physics.CapsuleShape",
+                    "start_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "col": 0,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 1.0
+                    },
+                    "set": 110,
+                    "shape_type": "via.physics.SphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            1.2999999523162842
+                        ]
+                    },
+                    "col": 1,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 1.0
+                    },
+                    "set": 110,
+                    "shape_type": "via.physics.SphereShape",
+                    "weapon_type": 0
+                }
+            ],
+            "enabled": true,
+            "name": "1",
+            "preset_id": 3,
+            "properties": {
+                "ActionType": {
+                    "enabled": false,
+                    "value": 1
+                },
+                "Attack": {
+                    "enabled": false,
+                    "value": 94.0
+                },
+                "AttackAttr": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttackCond": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttrLevel": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttrValue": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "BlastDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "BleedDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "CaptureDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "CriticaType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "CustomKireajiReduce": {
+                    "enabled": false,
+                    "value": 10
+                },
+                "DamageAngle": {
+                    "enabled": false,
+                    "value": 2
+                },
+                "DamageType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "DamageTypeCustom": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "DefenceDownDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FixAttack": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FlagBit": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "FreezeDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FrenzyDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FriendDamageType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "GeneralValue1": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "GeneralValue2": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "GeneralValue3": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "HealValue": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "HitEffectType": {
+                    "enabled": false,
+                    "value": 18
+                },
+                "HitStopIgnoreResponse": {
+                    "enabled": false,
+                    "value": false
+                },
+                "HitStopTypeFixed": {
+                    "enabled": false,
+                    "value": 425
+                },
+                "IgnoreRecoil": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsCustomKireajiReduce": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsDisableHitStop": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsForceUseKireajiAttackRate": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsNoCritical": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsNoUseKireaji": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsPointAttack": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsPrePointHitReaction": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsRawScarLimit": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsSkillHien": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsWeakPointLimit": {
+                    "enabled": false,
+                    "value": false
+                },
+                "Kireaji": {
+                    "enabled": false,
+                    "value": 3
+                },
+                "MultiHitRateCurve": {
+                    "enabled": false,
+                    "value": false
+                },
+                "MultiHitStatusRateCurve": {
+                    "enabled": false,
+                    "value": false
+                },
+                "MultiHitTimer": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "NoDamageReaction": {
+                    "enabled": false,
+                    "value": false
+                },
+                "OldScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "ParryDamage": {
+                    "enabled": false,
+                    "value": 100.0
+                },
+                "PartsBreakRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "PoisonDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "RawScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "RideDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "SleepDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "SpecialType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "StageDamageExID": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "StageDamageOld": {
+                    "enabled": false,
+                    "value": 94.0
+                },
+                "StageDamageType": {
+                    "enabled": false,
+                    "value": 2
+                },
+                "StaminaDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "StatusAttrRate": {
+                    "enabled": false,
+                    "value": 1.100000023841858
+                },
+                "StatusConditionRate": {
+                    "enabled": false,
+                    "value": 1.100000023841858
+                },
+                "StenchDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "StunDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "TearScarCreateRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "TearScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "UseSkillAdditionalDamage": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseSkillContinuousAttack": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseStatusAttackPower": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseStatusAttrPower": {
+                    "enabled": false,
+                    "value": true
+                }
+            },
+            "weapon_type": 0
+        },
+        "0_MasterPlayer_38": {
+            "attack_index": 38,
+            "attack_owner_name": "MasterPlayer",
+            "attack_owner_tag": "WorkRateTarget|HasSensorHit|Player",
+            "colliders": [
+                {
+                    "col": 0,
+                    "enabled": true,
+                    "end_pos": {
+                        "enabled": true,
+                        "value": [
+                            2.8446649480429187e-07,
+                            0.0,
+                            1.9500000476837158
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": true,
+                        "value": 1.0
+                    },
+                    "set": 102,
+                    "shape_type": "via.physics.ContinuousCapsuleShape",
+                    "start_pos": {
+                        "enabled": true,
+                        "value": [
+                            0.0,
+                            0.0,
+                            -0.800000011920929
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            2.0
+                        ]
+                    },
+                    "col": 1,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.550000011920929
+                    },
+                    "set": 102,
+                    "shape_type": "via.physics.ContinuousSphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            1.100000023841858
+                        ]
+                    },
+                    "col": 2,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.699999988079071
+                    },
+                    "set": 102,
+                    "shape_type": "via.physics.ContinuousSphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            2.5
+                        ]
+                    },
+                    "col": 3,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.5
+                    },
+                    "set": 102,
+                    "shape_type": "via.physics.ContinuousSphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "col": 0,
+                    "enabled": false,
+                    "end_pos": {
+                        "enabled": false,
+                        "value": [
+                            2.8446649480429187e-07,
+                            0.0,
+                            1.5
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.800000011920929
+                    },
+                    "set": 106,
+                    "shape_type": "via.physics.CapsuleShape",
+                    "start_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            -1.0
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "col": 1,
+                    "enabled": false,
+                    "end_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.10000000149011612
+                    },
+                    "set": 106,
+                    "shape_type": "via.physics.CapsuleShape",
+                    "start_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "col": 2,
+                    "enabled": false,
+                    "end_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.10000000149011612
+                    },
+                    "set": 106,
+                    "shape_type": "via.physics.CapsuleShape",
+                    "start_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "col": 0,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 1.0
+                    },
+                    "set": 111,
+                    "shape_type": "via.physics.SphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            1.2999999523162842
+                        ]
+                    },
+                    "col": 1,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 1.0
+                    },
+                    "set": 111,
+                    "shape_type": "via.physics.SphereShape",
+                    "weapon_type": 0
+                }
+            ],
+            "enabled": true,
+            "name": "2",
+            "preset_id": 3,
+            "properties": {
+                "ActionType": {
+                    "enabled": false,
+                    "value": 1
+                },
+                "Attack": {
+                    "enabled": false,
+                    "value": 121.0
+                },
+                "AttackAttr": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttackCond": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttrLevel": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttrValue": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "BlastDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "BleedDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "CaptureDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "CriticaType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "CustomKireajiReduce": {
+                    "enabled": false,
+                    "value": 10
+                },
+                "DamageAngle": {
+                    "enabled": false,
+                    "value": 2
+                },
+                "DamageType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "DamageTypeCustom": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "DefenceDownDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FixAttack": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FlagBit": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "FreezeDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FrenzyDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FriendDamageType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "GeneralValue1": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "GeneralValue2": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "GeneralValue3": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "HealValue": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "HitEffectType": {
+                    "enabled": false,
+                    "value": 18
+                },
+                "HitStopIgnoreResponse": {
+                    "enabled": false,
+                    "value": false
+                },
+                "HitStopTypeFixed": {
+                    "enabled": false,
+                    "value": 4721
+                },
+                "IgnoreRecoil": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsCustomKireajiReduce": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsDisableHitStop": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsForceUseKireajiAttackRate": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsNoCritical": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsNoUseKireaji": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsPointAttack": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsPrePointHitReaction": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsRawScarLimit": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsSkillHien": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsWeakPointLimit": {
+                    "enabled": false,
+                    "value": false
+                },
+                "Kireaji": {
+                    "enabled": false,
+                    "value": 3
+                },
+                "MultiHitRateCurve": {
+                    "enabled": false,
+                    "value": false
+                },
+                "MultiHitStatusRateCurve": {
+                    "enabled": false,
+                    "value": false
+                },
+                "MultiHitTimer": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "NoDamageReaction": {
+                    "enabled": false,
+                    "value": false
+                },
+                "OldScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "ParryDamage": {
+                    "enabled": false,
+                    "value": 150.0
+                },
+                "PartsBreakRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "PoisonDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "RawScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "RideDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "SleepDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "SpecialType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "StageDamageExID": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "StageDamageOld": {
+                    "enabled": false,
+                    "value": 121.0
+                },
+                "StageDamageType": {
+                    "enabled": false,
+                    "value": 2
+                },
+                "StaminaDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "StatusAttrRate": {
+                    "enabled": false,
+                    "value": 1.2000000476837158
+                },
+                "StatusConditionRate": {
+                    "enabled": false,
+                    "value": 1.2000000476837158
+                },
+                "StenchDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "StunDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "TearScarCreateRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "TearScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "UseSkillAdditionalDamage": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseSkillContinuousAttack": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseStatusAttackPower": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseStatusAttrPower": {
+                    "enabled": false,
+                    "value": true
+                }
+            },
+            "weapon_type": 0
+        },
+        "0_MasterPlayer_39": {
+            "attack_index": 39,
+            "attack_owner_name": "MasterPlayer",
+            "attack_owner_tag": "WorkRateTarget|HasSensorHit|Player",
+            "colliders": [
+                {
+                    "col": 0,
+                    "enabled": true,
+                    "end_pos": {
+                        "enabled": true,
+                        "value": [
+                            2.8446649480429187e-07,
+                            0.0,
+                            1.9500000476837158
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": true,
+                        "value": 1.0
+                    },
+                    "set": 103,
+                    "shape_type": "via.physics.ContinuousCapsuleShape",
+                    "start_pos": {
+                        "enabled": true,
+                        "value": [
+                            0.0,
+                            0.0,
+                            -0.800000011920929
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            2.0
+                        ]
+                    },
+                    "col": 1,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.550000011920929
+                    },
+                    "set": 103,
+                    "shape_type": "via.physics.ContinuousSphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            1.100000023841858
+                        ]
+                    },
+                    "col": 2,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.699999988079071
+                    },
+                    "set": 103,
+                    "shape_type": "via.physics.ContinuousSphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            2.5
+                        ]
+                    },
+                    "col": 3,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.5
+                    },
+                    "set": 103,
+                    "shape_type": "via.physics.ContinuousSphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "col": 0,
+                    "enabled": false,
+                    "end_pos": {
+                        "enabled": false,
+                        "value": [
+                            2.8446649480429187e-07,
+                            0.0,
+                            1.5
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.800000011920929
+                    },
+                    "set": 107,
+                    "shape_type": "via.physics.CapsuleShape",
+                    "start_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            -1.0
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "col": 1,
+                    "enabled": false,
+                    "end_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.10000000149011612
+                    },
+                    "set": 107,
+                    "shape_type": "via.physics.CapsuleShape",
+                    "start_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "col": 2,
+                    "enabled": false,
+                    "end_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 0.10000000149011612
+                    },
+                    "set": 107,
+                    "shape_type": "via.physics.CapsuleShape",
+                    "start_pos": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "col": 0,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 1.0
+                    },
+                    "set": 112,
+                    "shape_type": "via.physics.SphereShape",
+                    "weapon_type": 0
+                },
+                {
+                    "center": {
+                        "enabled": false,
+                        "value": [
+                            0.0,
+                            0.0,
+                            1.2999999523162842
+                        ]
+                    },
+                    "col": 1,
+                    "enabled": false,
+                    "group": 0,
+                    "radius": {
+                        "enabled": false,
+                        "value": 1.0
+                    },
+                    "set": 112,
+                    "shape_type": "via.physics.SphereShape",
+                    "weapon_type": 0
+                }
+            ],
+            "enabled": true,
+            "name": "3",
+            "preset_id": 3,
+            "properties": {
+                "ActionType": {
+                    "enabled": false,
+                    "value": 1
+                },
+                "Attack": {
+                    "enabled": false,
+                    "value": 151.0
+                },
+                "AttackAttr": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttackCond": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttrLevel": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "AttrValue": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "BlastDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "BleedDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "CaptureDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "CriticaType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "CustomKireajiReduce": {
+                    "enabled": false,
+                    "value": 10
+                },
+                "DamageAngle": {
+                    "enabled": false,
+                    "value": 2
+                },
+                "DamageType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "DamageTypeCustom": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "DefenceDownDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FixAttack": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FlagBit": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "FreezeDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FrenzyDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "FriendDamageType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "GeneralValue1": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "GeneralValue2": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "GeneralValue3": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "HealValue": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "HitEffectType": {
+                    "enabled": false,
+                    "value": 18
+                },
+                "HitStopIgnoreResponse": {
+                    "enabled": false,
+                    "value": false
+                },
+                "HitStopTypeFixed": {
+                    "enabled": false,
+                    "value": 24822
+                },
+                "IgnoreRecoil": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsCustomKireajiReduce": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsDisableHitStop": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsForceUseKireajiAttackRate": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsNoCritical": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsNoUseKireaji": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsPointAttack": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsPrePointHitReaction": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsRawScarLimit": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsSkillHien": {
+                    "enabled": false,
+                    "value": false
+                },
+                "IsWeakPointLimit": {
+                    "enabled": false,
+                    "value": false
+                },
+                "Kireaji": {
+                    "enabled": false,
+                    "value": 3
+                },
+                "MultiHitRateCurve": {
+                    "enabled": false,
+                    "value": false
+                },
+                "MultiHitStatusRateCurve": {
+                    "enabled": false,
+                    "value": false
+                },
+                "MultiHitTimer": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "NoDamageReaction": {
+                    "enabled": false,
+                    "value": false
+                },
+                "OldScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "ParryDamage": {
+                    "enabled": false,
+                    "value": 200.0
+                },
+                "PartsBreakRate": {
+                    "enabled": false,
+                    "value": 1.2000000476837158
+                },
+                "PoisonDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "RawScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "RideDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "SleepDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "SpecialType": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "StageDamageExID": {
+                    "enabled": false,
+                    "value": 0
+                },
+                "StageDamageOld": {
+                    "enabled": false,
+                    "value": 151.0
+                },
+                "StageDamageType": {
+                    "enabled": false,
+                    "value": 2
+                },
+                "StaminaDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "StatusAttrRate": {
+                    "enabled": false,
+                    "value": 1.2999999523162842
+                },
+                "StatusConditionRate": {
+                    "enabled": false,
+                    "value": 1.2999999523162842
+                },
+                "StenchDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "StunDamage": {
+                    "enabled": false,
+                    "value": 0.0
+                },
+                "TearScarCreateRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "TearScarDamageRate": {
+                    "enabled": false,
+                    "value": 1.0
+                },
+                "UseSkillAdditionalDamage": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseSkillContinuousAttack": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseStatusAttackPower": {
+                    "enabled": false,
+                    "value": true
+                },
+                "UseStatusAttrPower": {
+                    "enabled": false,
+                    "value": true
+                }
+            },
+            "weapon_type": 0
+        }
+    }
+}
