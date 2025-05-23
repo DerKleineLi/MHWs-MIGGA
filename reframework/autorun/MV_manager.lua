@@ -1137,38 +1137,38 @@ local function ui_colliders(colliders)
         if not collider then goto continue end
         local id_text = get_collider_key(collider.weapon_type, collider.group, collider.set, collider.col)
         if imgui.tree_node(tostring(i) .. " - " .. collider.shape_type .. " (" .. id_text .. ")") then
-            changed, collider.enabled = imgui.checkbox("Enabled: ", collider.enabled)
+            changed, collider.enabled = imgui.checkbox("Enabled", collider.enabled)
             any_changed = any_changed or changed
             local shape_type = collider.shape_type
             if shape_type == "via.physics.ContinuousCapsuleShape" or shape_type == "via.physics.CapsuleShape" then
                 changed, collider.start_pos.enabled = imgui.checkbox("Start Position: ", collider.start_pos.enabled)
                 any_changed = any_changed or changed
                 imgui.same_line()
-                changed = imgui_vec3(collider.start_pos.value, "Start Position")
+                changed = imgui_vec3(collider.start_pos.value, "##Start Position")
                 any_changed = any_changed or changed
 
                 changed, collider.end_pos.enabled = imgui.checkbox("End Position: ", collider.end_pos.enabled)
                 any_changed = any_changed or changed
                 imgui.same_line()
-                changed = imgui_vec3(collider.end_pos.value, "End Position")
+                changed = imgui_vec3(collider.end_pos.value, "##End Position")
                 any_changed = any_changed or changed
 
                 changed, collider.radius.enabled = imgui.checkbox("Radius: ", collider.radius.enabled)
                 any_changed = any_changed or changed
                 imgui.same_line()
-                changed, collider.radius.value = imgui.drag_float("Radius", collider.radius.value, 0.01, 0.0, 100.0, "%.2f")
+                changed, collider.radius.value = imgui.drag_float("##Radius", collider.radius.value, 0.01, 0.0, 100.0, "%.2f")
                 any_changed = any_changed or changed
             elseif shape_type == "via.physics.ContinuousSphereShape" or shape_type == "via.physics.SphereShape" then
                 changed, collider.center.enabled = imgui.checkbox("Center: ", collider.center.enabled)
                 any_changed = any_changed or changed
                 imgui.same_line()
-                changed = imgui_vec3(collider.center.value, "Center")
+                changed = imgui_vec3(collider.center.value, "##Center")
                 any_changed = any_changed or changed
 
                 changed, collider.radius.enabled = imgui.checkbox("Radius: ", collider.radius.enabled)
                 any_changed = any_changed or changed
                 imgui.same_line()
-                changed, collider.radius.value = imgui.drag_float("Radius", collider.radius.value, 0.01, 0.0, 100.0, "%.2f")
+                changed, collider.radius.value = imgui.drag_float("##Radius", collider.radius.value, 0.01, 0.0, 100.0, "%.2f")
                 any_changed = any_changed or changed
             end
             imgui.tree_pop()
@@ -1210,13 +1210,50 @@ re.on_frame(
 
 -- on hit
 local function get_key(hit_data)
-    return string.format("%d_%s_%d", hit_data.weapon_type, hit_data.attack_owner_name, hit_data.attack_index)
+    return string.format("%s_%s_%d", tostring(hit_data.weapon_type), hit_data.attack_owner_name, hit_data.attack_index)
 end
-local function hit_pre(args)
+-- app.Wp10Insect.evAttackPreProcess(app.HitInfo)
+sdk.hook(sdk.find_type_definition("app.Wp10Insect"):get_method("evAttackPreProcess(app.HitInfo)"), 
+function(args)
     if not config.enabled then return end
     local this = sdk.to_managed_object(args[2])
     if not this then return end
     local this_hunter = this:get_Hunter()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    local hit_info = sdk.to_managed_object(args[3])
+    if not hit_info then return end
+    local attack_data = hit_info:get_field("<AttackData>k__BackingField")
+    if not attack_data then return end
+    local hit_data = {
+        weapon_type = "Kinsect",
+        attack_index = hit_info:get_field("<AttackIndex>k__BackingField")._Index,
+        attack_owner_name = hit_info:get_field("<AttackOwner>k__BackingField"):get_Name(),
+        attack_owner_tag = hit_info:get_field("<AttackOwner>k__BackingField"):get_Tag(),
+        attack_name = attack_data:get_field("_UserData"):get_Name(),
+    }
+    hit_data.key = get_key(hit_data)
+
+    local motion_config = get_motion_config(hit_data.key)
+    hit_data.name = motion_config.name
+    hit_data.preset_id = motion_config.preset_id
+
+    hit_data.properties = get_properties(attack_data)
+    hit_data.colliders = get_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), active_collider_list, hit_data.weapon_type)
+
+    push_queue(hit_data)
+
+    if motion_config.enabled then
+        set_properties(attack_data, motion_config.properties)
+    end
+end, nil)
+-- app.cHunterWeaponHandlingBase.evHit_AttackPreProcess(app.HitInfo, System.Boolean, System.Boolean)
+-- sdk.hook(sdk.find_type_definition("app.cHunterWeaponHandlingBase"):get_method("evHit_AttackPreProcess(app.HitInfo, System.Boolean, System.Boolean)"), hit_pre, nil)
+-- app.HunterCharacter.evHit_AttackPreProcess(app.HitInfo)
+sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"), 
+function(args)
+    if not config.enabled then return end
+    local this_hunter = sdk.to_managed_object(args[2])
     if not this_hunter then return end
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
     local hit_info = sdk.to_managed_object(args[3])
@@ -1244,11 +1281,7 @@ local function hit_pre(args)
     if motion_config.enabled then
         set_properties(attack_data, motion_config.properties)
     end
-end
--- app.Wp10Insect.evAttackPreProcess(app.HitInfo)
-sdk.hook(sdk.find_type_definition("app.Wp10Insect"):get_method("evAttackPreProcess(app.HitInfo)"), hit_pre, nil)
--- app.cHunterWeaponHandlingBase.evHit_AttackPreProcess(app.HitInfo, System.Boolean, System.Boolean)
-sdk.hook(sdk.find_type_definition("app.cHunterWeaponHandlingBase"):get_method("evHit_AttackPreProcess(app.HitInfo, System.Boolean, System.Boolean)"), hit_pre, nil)
+end, nil)
 
 -- app.Weapon.evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlWp, ace.MOTION_SEQUENCE_UPDATER_ARGS)
 local in_attack_collision = false
