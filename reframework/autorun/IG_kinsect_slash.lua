@@ -326,10 +326,12 @@ sdk.hook(sdk.find_type_definition("app.cHunterWp10Handling"):get_method("doOnHit
     if not hit_info then return end
     local damage_owner = hit_info:get_field("<DamageOwner>k__BackingField")
     local damage_owner_tag = damage_owner:get_Tag()
+    -- log.debug("damage_owner_tag: " .. damage_owner_tag)
     local is_shell = contains_token(damage_owner_tag, "Shell")
     local is_enemy = contains_token(damage_owner_tag, "Enemy")
+    local is_animal = contains_token(damage_owner_tag, "Animal")
 
-    should_jump = in_thrust and (config.trigger_on_everything or (not is_shell and is_enemy))
+    should_jump = in_thrust and (config.trigger_on_everything or (not is_shell and is_enemy and not is_animal))
     should_kinsect_out = should_jump
     if should_kinsect_out then
         kinsect_pre_recall = false
