@@ -1108,7 +1108,6 @@ local function set_colliders()
         for _, motion_config in pairs(preset.motion_configs) do
             if not motion_config.colliders then goto continue end
             for _, collider_config in ipairs(motion_config.colliders) do
-                local key = get_collider_key(collider_config.weapon_type, collider_config.group, collider_config.set, collider_config.col)
                 if not collider_config or collider_config.weapon_type == nil then goto continue1 end
                 if collider_config.weapon_type ~= get_wp_type() and collider_config.weapon_type ~= "Body" then goto continue1 end
                 local enabled = config.enabled and preset.enabled and motion_config.enabled and collider_config.enabled
@@ -1233,7 +1232,6 @@ local active_collider_list = {}
 re.on_frame(
     function()
         if should_set_colliders then
-            set_colliders()
             local success = pcall(function()
                 set_colliders()
             end)
