@@ -324,6 +324,7 @@ function(args)
         hit_info:set_DamageAttackData(attack_param_pl)
         hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectType", 18)
         hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_ParryDamage", config.parry.parry_damage)
+        hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectOverwriteConnectID", -1)
         on_mod_parry = true
     end
 
