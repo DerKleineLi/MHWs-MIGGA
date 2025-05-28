@@ -812,7 +812,7 @@ local function get_wp_colliders()
     return output
 end
 
-local function get_num_collidables(group, set)
+local function get_wp_num_collidables(group, set)
     local wp = get_wp()
     if not wp then return nil end
     local wp_collider = wp:get_RequestSetCollider()
@@ -826,6 +826,42 @@ local function get_wp_collider(group, set, col)
     local wp_collider = wp:get_RequestSetCollider()
     if not wp_collider then return nil end
     return wp_collider:getCollidable(group, set, col)
+end
+
+local function get_body_num_collidables(group, set)
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    local collider_switcher = hunter:get_ColSwitcherComponent()
+    if not collider_switcher then return nil end
+    local body_collider = collider_switcher:get_RequestSetCollider()
+    if not body_collider then return nil end
+    return body_collider:getNumCollidables(group, set)
+end
+
+local function get_body_collider(group, set, col)
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    local collider_switcher = hunter:get_ColSwitcherComponent()
+    if not collider_switcher then return nil end
+    local body_collider = collider_switcher:get_RequestSetCollider()
+    if not body_collider then return nil end
+    return body_collider:getCollidable(group, set, col)
+end
+
+local function get_num_collidables(part, group, set)
+    if part == "Weapon" then
+        return get_wp_num_collidables(group, set)
+    elseif part == "Body" then
+        return get_body_num_collidables(group, set)
+    end
+end
+
+local function get_collider(part, group, set, col)
+    if part == "Body" then
+        return get_body_collider(group, set, col)
+    else
+        return get_wp_collider(group, set, col)
+    end
 end
 
 local function get_properties(attack_data)
@@ -953,7 +989,7 @@ local function get_collider_key(weapon_type, group, set, col)
     if weapon_type == nil or group == nil or set == nil or col == nil then
         return nil
     end
-    return string.format("%d_%d_%d_%d", weapon_type, group, set, col)
+    return string.format("%s_%d_%d_%d", tostring(weapon_type), group, set, col)
 end
 
 local function extract_collider_properties(collidable, output)
@@ -984,13 +1020,14 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
     local found = false
     local active_colliders = {}
     for i = 1, #active_collider_list do
-        local active_group_id, active_set_id = active_collider_list[i].group, active_collider_list[i].set
+        local active_part, active_group_id, active_set_id = active_collider_list[i].part, active_collider_list[i].group, active_collider_list[i].set
         -- local active_collider_set = wp_colliders[active_group_id][active_set_id]
-        local num_collidables = get_num_collidables(active_group_id, active_set_id)
+        local num_collidables = get_num_collidables(active_part, active_group_id, active_set_id)
         for k = 0, num_collidables - 1 do
-            local collider = get_wp_collider(active_group_id, active_set_id, k)
+            local collider_weapon_type = active_part == "Body" and "Body" or weapon_type
+            local collider = get_collider(collider_weapon_type, active_group_id, active_set_id, k)
             active_colliders[#active_colliders + 1] = {
-                weapon_type = weapon_type,
+                weapon_type = collider_weapon_type,
                 group = active_group_id,
                 set = active_set_id,
                 col = k,
@@ -1003,7 +1040,7 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
     end
     if not found then
         output[1] = {
-            weapon_type = weapon_type,
+            weapon_type = nil,
             group = nil,
             set = nil,
             col = nil,
@@ -1013,7 +1050,7 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
     else
         for i = 1, #active_colliders do
             local active_collider = active_colliders[i]
-            local key = get_collider_key(weapon_type, active_collider.group, active_collider.set, active_collider.col)
+            local key = get_collider_key(active_collider.weapon_type, active_collider.group, active_collider.set, active_collider.col)
             local default_collider = get_default_collider(key)
             if default_collider then 
                 output[i] = default_collider 
@@ -1036,7 +1073,7 @@ local function set_collider(collider_config, force)
     local function vec3(val)
         return Vector3f.new(val[1], val[2], val[3])
     end
-    local collider = get_wp_collider(collider_config.group, collider_config.set, collider_config.col)
+    local collider = get_collider(collider_config.weapon_type, collider_config.group, collider_config.set, collider_config.col)
     local shape = collider:get_Shape()
     local shape_type = collider_config.shape_type
     if shape_type == "via.physics.ContinuousCapsuleShape" or shape_type == "via.physics.CapsuleShape" then
@@ -1069,15 +1106,15 @@ local function set_colliders()
     local preset_managed_colliders = {}
     for preset_name, preset in pairs(preset_configs) do
         for _, motion_config in pairs(preset.motion_configs) do
-            local weapon_type = motion_config.weapon_type
-            if weapon_type ~= get_wp_type() then goto continue end
-            for _, collider_config in spairs(motion_config.colliders) do
-                if not collider_config or collider_config.group == nil then goto continue1 end
+            if not motion_config.colliders then goto continue end
+            for _, collider_config in ipairs(motion_config.colliders) do
+                local key = get_collider_key(collider_config.weapon_type, collider_config.group, collider_config.set, collider_config.col)
+                if not collider_config or collider_config.weapon_type == nil then goto continue1 end
+                if collider_config.weapon_type ~= get_wp_type() and collider_config.weapon_type ~= "Body" then goto continue1 end
                 local enabled = config.enabled and preset.enabled and motion_config.enabled and collider_config.enabled
-                local key = get_collider_key(weapon_type, collider_config.group, collider_config.set, collider_config.col)
+                local key = get_collider_key(collider_config.weapon_type, collider_config.group, collider_config.set, collider_config.col)
                 if not enabled and preset_managed_colliders[key] then goto continue1 end
                 collider_config = enabled and collider_config or get_default_collider(key)
-                -- log.debug("setting: " .. key .. " Default:" .. tostring(not enabled))
                 set_collider(collider_config, not enabled)
                 if enabled then preset_managed_colliders[key] = true end
                 ::continue1::
@@ -1096,7 +1133,7 @@ local function show_colliders(hit_data)
         if collider.group == nil or collider.set == nil or collider.col == nil then
             id_text = "Unsupported collider"
         else
-            id_text = get_collider_key(hit_data.weapon_type, collider.group, collider.set, collider.col)
+            id_text = get_collider_key(collider.weapon_type, collider.group, collider.set, collider.col)
         end
         if imgui.tree_node(tostring(i) .. " - " .. collider.shape_type .. " (" .. id_text .. ")") then
             if collider then
@@ -1196,6 +1233,7 @@ local active_collider_list = {}
 re.on_frame(
     function()
         if should_set_colliders then
+            set_colliders()
             local success = pcall(function()
                 set_colliders()
             end)
@@ -1284,7 +1322,7 @@ function(args)
 end, nil)
 
 -- app.Weapon.evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlWp, ace.MOTION_SEQUENCE_UPDATER_ARGS)
-local in_attack_collision = false
+local in_attack_collision = nil
 sdk.hook(sdk.find_type_definition("app.Weapon"):get_method("evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlWp, ace.MOTION_SEQUENCE_UPDATER_ARGS)"),
 function(args)
     local this = sdk.to_managed_object(args[2])
@@ -1295,9 +1333,26 @@ function(args)
         active_collider_list = {}
         has_reset_collider_list = true
     end
-    in_attack_collision = true
+    in_attack_collision = "Weapon"
 end, function(retval)
-    in_attack_collision = false
+    in_attack_collision = nil
+    return retval
+end, nil)
+
+-- app.HunterCharacter.cMotionSupporter.evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlBody, ace.MOTION_SEQUENCE_UPDATER_ARGS)
+sdk.hook(sdk.find_type_definition("app.HunterCharacter.cMotionSupporter"):get_method("evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlBody, ace.MOTION_SEQUENCE_UPDATER_ARGS)"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    local this_hunter = this._Chara
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    if not has_reset_collider_list then
+        active_collider_list = {}
+        has_reset_collider_list = true
+    end
+    in_attack_collision = "Body"
+end, function(retval)
+    in_attack_collision = nil
     return retval
 end, nil)
 
@@ -1310,6 +1365,7 @@ sdk.hook( -- credits to kmyx
         local group_index = sdk.to_int64(args[4]) & 0xFFFFFFFF
 		local set_index = sdk.to_int64(args[5]) & 0xFFFFFFFF
         active_collider_list[#active_collider_list + 1] = {
+            part = in_attack_collision,
             group = group_index,
             set = set_index,
         }
@@ -1430,7 +1486,7 @@ re.on_draw_ui(function()
                         preset_configs[preset_name].motion_configs[hit_data.key].colliders = {}
                         for i, collider in spairs(hit_data.colliders) do
                             if collider.group and collider.set and collider.col then
-                                local collider_key = get_collider_key(hit_data.weapon_type, collider.group, collider.set, collider.col)
+                                local collider_key = get_collider_key(collider.weapon_type, collider.group, collider.set, collider.col)
                                 preset_configs[preset_name].default_colliders[collider_key] = collider
                                 local new_collider = copy_table(collider)
                                 preset_configs[preset_name].motion_configs[hit_data.key].colliders[i] = new_collider
