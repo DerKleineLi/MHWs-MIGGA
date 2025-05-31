@@ -1,4 +1,6 @@
+-----------------------------
 -- const
+-----------------------------
 local lookup_table = {
     {
         name="Attack",
@@ -345,6 +347,12 @@ local lookup_table = {
         type = "app.HitDef.DAMAGE_TYPE",
     },
     {
+        name = "IsSensor",
+        description = "Whether this hit is a helper, the mod won't process hits with IsSensor being true.",
+        varname = "_IsSensor",
+        type = "bool",
+    },
+    {
         name = "IgnoreRecoil",
         description = "Mind's Eye",
         varname = "_IgnoreRecoil",
@@ -572,7 +580,9 @@ local enum_fixed_table = {
     ["app.PlayerDef.HIT_STOP_TYPE_Fixed"] = get_enum_fixed("app.PlayerDef.HIT_STOP_TYPE", "app.PlayerDef.HIT_STOP_TYPE_Fixed"),
 }
 
+-----------------------------
 -- config
+-----------------------------
 local config_file = "MV_manager.json"
 local preset_dir = "MVManagerPresets\\\\"
 
@@ -748,8 +758,19 @@ re.on_config_save(
     end
 )
 
-
+-----------------------------
 -- helper functions
+-----------------------------
+function contains_token(haystack, needle)
+    local needle_lower = needle:lower()
+    for token in string.gmatch(haystack, "[^|]+") do
+        if token:lower() == needle_lower then
+            return true
+        end
+    end
+    return false
+end
+
 local function copy_table(t)
     local copy = {}
     for k, v in pairs(t) do
@@ -788,6 +809,13 @@ local function get_wp_type()
     local hunter = get_hunter()
     if not hunter then return nil end
     return hunter:get_WeaponType()
+end
+
+local function get_kinsect()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    local kinsect = hunter:get_Wp10Insect()
+    return kinsect
 end
 
 local function get_wp_colliders()
@@ -848,17 +876,43 @@ local function get_body_collider(group, set, col)
     return body_collider:getCollidable(group, set, col)
 end
 
+local function get_kinsect_num_collidables(group, set)
+    local kinsect = get_kinsect()
+    if not kinsect then return nil end
+    local component = kinsect._Components
+    if not component then return nil end
+    local component_type = sdk.find_type_definition("app.Wp10Insect.COMPONENTS")
+    local kinsect_collider = sdk.get_native_field(component, component_type, "_RequestSetCol")
+    if not kinsect_collider then return nil end
+    return kinsect_collider:getNumCollidables(group, set)
+end
+
+local function get_kinsect_collider(group, set, col)
+    local kinsect = get_kinsect()
+    if not kinsect then return nil end
+    local component = kinsect._Components
+    if not component then return nil end
+    local component_type = sdk.find_type_definition("app.Wp10Insect.COMPONENTS")
+    local kinsect_collider = sdk.get_native_field(component, component_type, "_RequestSetCol")
+    if not kinsect_collider then return nil end
+    return kinsect_collider:getCollidable(group, set, col)
+end
+
 local function get_num_collidables(part, group, set)
     if part == "Weapon" then
         return get_wp_num_collidables(group, set)
     elseif part == "Body" then
         return get_body_num_collidables(group, set)
+    elseif part == "Kinsect" then
+        return get_kinsect_num_collidables(group, set)
     end
 end
 
 local function get_collider(part, group, set, col)
     if part == "Body" then
         return get_body_collider(group, set, col)
+    elseif part == "Kinsect" then
+        return get_kinsect_collider(group, set, col)
     else
         return get_wp_collider(group, set, col)
     end
@@ -1039,6 +1093,7 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
         end
     end
     if not found then
+        -- log.debug("not found: " .. string.format("%x", collidable:get_address()))
         output[1] = {
             weapon_type = nil,
             group = nil,
@@ -1069,11 +1124,112 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
     return output
 end
 
-local function set_collider(collider_config, force)
+local function get_kinsect_colliders(collidable)
+    local output = {}
+
+    local found = false
+    local active_colliders = {}
+    for set_id = 0, 10 do
+        active_colliders = {}
+        local num_collidables = get_kinsect_num_collidables(0, set_id)
+        if num_collidables then
+            for col = 0, num_collidables - 1 do
+                local collider = get_kinsect_collider(0, set_id, col)
+                if collider and collider == collidable then
+                    found = true
+                end
+                active_colliders[#active_colliders + 1] = {
+                    weapon_type = "Kinsect",
+                    group = 0,
+                    set = set_id,
+                    col = col,
+                    collider = collider,
+                }
+            end
+        end
+        if found then break end
+    end
+    
+    if not found then
+        -- log.debug("not found: " .. string.format("%x", collidable:get_address()))
+        output[1] = {
+            weapon_type = nil,
+            group = nil,
+            set = nil,
+            col = nil,
+            enabled = false,
+        }
+        extract_collider_properties(collidable, output[1])
+    else
+        for i = 1, #active_colliders do
+            local active_collider = active_colliders[i]
+            local key = get_collider_key(active_collider.weapon_type, active_collider.group, active_collider.set, active_collider.col)
+            local default_collider = get_default_collider(key)
+            if default_collider then 
+                output[i] = default_collider 
+            else
+                output[i] = {
+                    weapon_type = active_collider.weapon_type,
+                    group = active_collider.group,
+                    set = active_collider.set,
+                    col = active_collider.col,
+                    enabled = false,
+                }
+                extract_collider_properties(active_collider.collider, output[i])
+            end
+        end
+    end
+    return output
+end
+
+local function get_shell_colliders(collidable, shell_collider_queue)
+    for i = #shell_collider_queue, 1, -1 do
+        local shell_colliders = shell_collider_queue[i]
+        for _, shell_collider in ipairs(shell_colliders) do
+            if shell_collider.address == collidable:get_address() then
+                return shell_colliders
+            end
+        end
+    end
+
+    -- local rsc = shell_collider_queue[#shell_collider_queue][1].rsc
+    -- if rsc then
+    --     for group = 0, 100 do
+    --         local num_sets = rsc:getNumRequestSets(group)
+    --         if num_sets then
+    --             for set = 0, 500 do
+    --                 local num_collidables = rsc:getNumCollidables(group, set)
+    --                 for col = 0, num_collidables - 1 do
+    --                     local collider = rsc:getCollidable(group, set, col)
+    --                     if collider and collider == collidable then
+    --                         log.debug("[MVManager] Found shell collider in RSC: " .. get_collider_key(shell_collider_queue[#shell_collider_queue][1].weapon_type, group, set, col))
+    --                     end
+    --                 end
+    --             end
+    --         end
+    --     end
+    -- end
+
+    -- log.debug("not found: " .. string.format("%x", collidable:get_address()))
+    local output = {}
+    output[1] = {
+        weapon_type = nil,
+        group = nil,
+        set = nil,
+        col = nil,
+        enabled = false,
+    }
+    extract_collider_properties(collidable, output[1])
+    return output
+end
+
+local function set_collider(collider_config, force, collider)
     local function vec3(val)
         return Vector3f.new(val[1], val[2], val[3])
     end
-    local collider = get_collider(collider_config.weapon_type, collider_config.group, collider_config.set, collider_config.col)
+    if not collider then
+        collider = get_collider(collider_config.weapon_type, collider_config.group, collider_config.set, collider_config.col)
+    end
     local shape = collider:get_Shape()
     local shape_type = collider_config.shape_type
     if shape_type == "via.physics.ContinuousCapsuleShape" or shape_type == "via.physics.CapsuleShape" then
@@ -1109,7 +1265,12 @@ local function set_colliders()
             if not motion_config.colliders then goto continue end
             for _, collider_config in ipairs(motion_config.colliders) do
                 if not collider_config or collider_config.weapon_type == nil then goto continue1 end
-                if collider_config.weapon_type ~= get_wp_type() and collider_config.weapon_type ~= "Body" then goto continue1 end
+                -- check weapon state
+                local is_weapon = collider_config.weapon_type == "Body"
+                local current_wp_type = get_wp_type()
+                local is_weapon = is_weapon or collider_config.weapon_type == current_wp_type
+                local is_weapon = is_weapon or (collider_config.weapon_type == "Kinsect" and current_wp_type == 10)
+                if not is_weapon then goto continue1 end
                 local enabled = config.enabled and preset.enabled and motion_config.enabled and collider_config.enabled
                 local key = get_collider_key(collider_config.weapon_type, collider_config.group, collider_config.set, collider_config.col)
                 if not enabled and preset_managed_colliders[key] then goto continue1 end
@@ -1123,8 +1284,41 @@ local function set_colliders()
     end
 end
 
+local function get_shell_collider_config(query)
+    local output = {}
+    for preset_name, preset in pairs(preset_configs) do
+        if not preset.enabled then goto continue end
+        for _, motion_config in pairs(preset.motion_configs) do
+            if not motion_config.enabled or not motion_config.shell_colliders then goto continue1 end
+            for _, collider_config in ipairs(motion_config.shell_colliders) do
+                if not collider_config or collider_config.weapon_type == nil or not collider_config.enabled then goto continue2 end
+                local key = get_collider_key(collider_config.weapon_type, collider_config.group, collider_config.set, collider_config.col)
+                if query == key then
+                    output[#output + 1] = collider_config
+                end
+                ::continue2::
+            end
+            ::continue1::
+        end
+        ::continue::
+    end
+    return output
+end
+
 local function show_colliders(hit_data)
-    local colliders = hit_data.colliders
+    local colliders = {}
+    -- Combine colliders and shell_colliders into one table
+    if hit_data.colliders then
+        for i, v in pairs(hit_data.colliders) do
+            colliders[i] = v
+        end
+    end
+    if hit_data.shell_colliders then
+        local offset = #colliders
+        for i, v in pairs(hit_data.shell_colliders) do
+            colliders[offset + i] = v
+        end
+    end
     if not colliders then return end
     for i, collider in spairs(colliders) do
         if not collider then goto continue end
@@ -1214,14 +1408,15 @@ local function ui_colliders(colliders)
     return any_changed
 end
 
-
+-----------------------------
 -- core
+-----------------------------
 local hit_data_queue = {}
 local max_queue_size = 20
-local function push_queue(hit_data)
-    table.insert(hit_data_queue, hit_data)
-    if #hit_data_queue > max_queue_size then
-        table.remove(hit_data_queue, 1)
+local function push_queue(queue, data)
+    table.insert(queue, data)
+    if #queue > max_queue_size then
+        table.remove(queue, 1)
     end
 end
 
@@ -1229,8 +1424,14 @@ local should_set_colliders = true
 local has_reset_collider_list = false
 local active_collider_list = {}
 
+local shell_collider_queue = {}
+local max_shell_collider_queue_size = 20
+
+local ui_on = false
+
 re.on_frame(
     function()
+        ui_on = false
         if should_set_colliders then
             local success = pcall(function()
                 set_colliders()
@@ -1244,7 +1445,9 @@ re.on_frame(
     end
 )
 
+-----------------------------
 -- on hit
+-----------------------------
 local function get_key(hit_data)
     return string.format("%s_%s_%d", tostring(hit_data.weapon_type), hit_data.attack_owner_name, hit_data.attack_index)
 end
@@ -1271,20 +1474,24 @@ function(args)
     hit_data.key = get_key(hit_data)
 
     local motion_config = get_motion_config(hit_data.key)
-    hit_data.name = motion_config.name
-    hit_data.preset_id = motion_config.preset_id
 
-    hit_data.properties = get_properties(attack_data)
-    hit_data.colliders = get_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), active_collider_list, hit_data.weapon_type)
+    if ui_on then
+        hit_data.name = motion_config.name
+        hit_data.preset_id = motion_config.preset_id
 
-    push_queue(hit_data)
+        hit_data.properties = get_properties(attack_data)
+        if hit_data.properties.IsSensor.value then return end
+        hit_data.colliders = get_kinsect_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"))
+        hit_data.shell_colliders = {}
+
+        push_queue(hit_data_queue, hit_data)
+    end
 
     if motion_config.enabled then
         set_properties(attack_data, motion_config.properties)
     end
 end, nil)
--- app.cHunterWeaponHandlingBase.evHit_AttackPreProcess(app.HitInfo, System.Boolean, System.Boolean)
--- sdk.hook(sdk.find_type_definition("app.cHunterWeaponHandlingBase"):get_method("evHit_AttackPreProcess(app.HitInfo, System.Boolean, System.Boolean)"), hit_pre, nil)
+
 -- app.HunterCharacter.evHit_AttackPreProcess(app.HitInfo)
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"), 
 function(args)
@@ -1306,23 +1513,38 @@ function(args)
     hit_data.key = get_key(hit_data)
 
     local motion_config = get_motion_config(hit_data.key)
-    hit_data.name = motion_config.name
-    hit_data.preset_id = motion_config.preset_id
 
-    hit_data.properties = get_properties(attack_data)
-    hit_data.colliders = get_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), active_collider_list, hit_data.weapon_type)
+    if ui_on then
+        hit_data.name = motion_config.name
+        hit_data.preset_id = motion_config.preset_id
 
-    push_queue(hit_data)
+        hit_data.properties = get_properties(attack_data)
+        if hit_data.properties.IsSensor.value then return end
+
+        if contains_token(hit_data.attack_owner_tag, "Shell") then
+            hit_data.shell_colliders = get_shell_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), shell_collider_queue)
+            hit_data.colliders = {}
+        else
+            hit_data.colliders = get_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), active_collider_list, hit_data.weapon_type)
+            hit_data.shell_colliders = {}
+        end
+
+        push_queue(hit_data_queue, hit_data)
+    end
 
     if motion_config.enabled then
         set_properties(attack_data, motion_config.properties)
     end
 end, nil)
 
+-----------------------------
+-- on activate collision
+-----------------------------
 -- app.Weapon.evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlWp, ace.MOTION_SEQUENCE_UPDATER_ARGS)
 local in_attack_collision = nil
 sdk.hook(sdk.find_type_definition("app.Weapon"):get_method("evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlWp, ace.MOTION_SEQUENCE_UPDATER_ARGS)"),
 function(args)
+    if not ui_on then return end
     local this = sdk.to_managed_object(args[2])
     local this_hunter = this:get_Hunter()
     if not this_hunter then return end
@@ -1340,6 +1562,7 @@ end, nil)
 -- app.HunterCharacter.cMotionSupporter.evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlBody, ace.MOTION_SEQUENCE_UPDATER_ARGS)
 sdk.hook(sdk.find_type_definition("app.HunterCharacter.cMotionSupporter"):get_method("evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlBody, ace.MOTION_SEQUENCE_UPDATER_ARGS)"),
 function(args)
+    if not ui_on then return end
     local this = sdk.to_managed_object(args[2])
     local this_hunter = this._Chara
     if not this_hunter then return end
@@ -1370,14 +1593,181 @@ sdk.hook( -- credits to kmyx
     end, nil
 )
 
+-----------------------------
+-- on create shell collider
+-----------------------------
+
+local in_create_shell = false
+local set_ids = nil
+
+local function handle_shell_colliders(shell_col_hit)
+    if not shell_col_hit or set_ids == nil then return end
+    local hit_controller = shell_col_hit:get_field("_HitController")
+    local owner = hit_controller:get_field("_Owner")
+    local owner_name = owner:get_Name()
+    local shell_collider = hit_controller:get_field("_ReqSetCollider")
+
+    local group_id = shell_col_hit._CollisionResourceIndex
+
+    local active_colliders = {}
+    for _, set_id in ipairs(set_ids) do
+        local num_collidables = shell_collider:getNumCollidables(group_id, set_id)
+        for k = 0, num_collidables - 1 do
+            local collider = shell_collider:getCollidable(group_id, set_id, k)
+            if not collider then goto continue end
+            active_colliders[#active_colliders + 1] = {
+                weapon_type = owner_name,
+                group = group_id,
+                set = set_id,
+                col = k,
+                collider = collider,
+            }
+            ::continue::
+        end
+    end
+
+    local output = {}
+
+    for i = 1, #active_colliders do
+        local active_collider = active_colliders[i]
+        local key = get_collider_key(active_collider.weapon_type, active_collider.group, active_collider.set, active_collider.col)
+        if ui_on then
+            output[i] = {
+                weapon_type = active_collider.weapon_type,
+                group = active_collider.group,
+                set = active_collider.set,
+                col = active_collider.col,
+                enabled = false,
+                address = active_collider.collider:get_address(),
+                -- rsc = shell_collider,
+            }
+            extract_collider_properties(active_collider.collider, output[i])
+        end
+
+        collider_configs = get_shell_collider_config(key)
+        for _, collider_config in ipairs(collider_configs) do
+            set_collider(collider_config, false, active_collider.collider)
+        end
+    end
+    if ui_on then
+        push_queue(shell_collider_queue, output)
+    end
+end
+
+-- app.mcShellColHit.setupCollision()
+local shell_col_hit = nil
+sdk.hook(sdk.find_type_definition("app.mcShellColHit"):get_method("setupCollision"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local owner = this:get_Owner()
+    if not owner then return end
+
+    -- get root owner, credits to kmyx
+    local shell_base = owner:call("getComponent(System.Type)", sdk.typeof("ace.ShellBase"))
+    -- if not shell_base then return end
+    ---@cast shell_base ace.ShellBase
+    local shell_owner = shell_base:get_ShellOwner()
+    local shell_transform = shell_owner:get_Transform()
+
+    for _ = 1, 100 do
+        local parent = shell_transform:get_Parent()
+        if parent then
+            shell_transform = parent
+        else
+            break
+        end
+    end
+
+    local actual_owner = shell_transform:get_GameObject()
+    if not actual_owner then return end
+    if actual_owner:get_Name() ~= "MasterPlayer" then return end
+
+    in_create_shell = true
+    set_ids = nil
+    shell_col_hit = sdk.to_managed_object(args[2])
+end, function(retval)
+    if not in_create_shell then return retval end
+    in_create_shell = false
+    handle_shell_colliders(shell_col_hit)
+    return retval
+end)
+
+-- app.mcShellPlPenetrateHit.onSetup()
+local shell_penetrate = nil
+sdk.hook(sdk.find_type_definition("app.mcShellPlPenetrateHit"):get_method("onSetup()"),
+function(args)
+    shell_penetrate = sdk.to_managed_object(args[2])
+    if not shell_penetrate then return end
+    local this_hunter = shell_penetrate:getHunter()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    in_create_shell = true
+    set_ids = nil
+end, function(retval)
+    if not in_create_shell then return retval end
+    in_create_shell = false
+    if not shell_penetrate then return retval end
+    local shell_col_hit = shell_penetrate._ShellColHit
+    handle_shell_colliders(shell_col_hit)
+    return retval
+end)
+
+-- app.mcShellPlWp11Arrow.applyBottle()
+local apply_bottle_threads = {}
+sdk.hook(sdk.find_type_definition("app.mcShellPlWp11Arrow"):get_method("applyBottle()"),
+function(args)
+    local wp11_arrow = sdk.to_managed_object(args[2])
+    if not wp11_arrow then return end
+    local wp_handling = wp11_arrow:getWp11(false)
+    if not wp_handling then return end
+    local this_hunter = wp_handling:get_Hunter()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    
+    if #apply_bottle_threads == 0 then
+        set_ids = nil
+    end
+
+    apply_bottle_threads[#apply_bottle_threads + 1] = wp11_arrow
+end, function(retval)
+    if #apply_bottle_threads == 0 then return retval end
+    local wp11_arrow = apply_bottle_threads[1]
+    table.remove(apply_bottle_threads, 1)
+    local shell_col_hit = wp11_arrow._ShellColHitComponent
+    handle_shell_colliders(shell_col_hit)
+    return retval
+end)
+
+sdk.hook(sdk.find_type_definition("app.HitController"):get_method("refreshHitID(System.UInt32, app.Hit.HIT_ID_GROUP, System.UInt32)"),
+function(args)
+    if not in_create_shell and #apply_bottle_threads == 0 then return end
+    set_ids = set_ids or {}
+    local this_id = sdk.to_int64(args[3]) & 0xFFFFFFFF
+    local already_exists = false
+    for _, v in ipairs(set_ids) do
+        if v == this_id then
+            already_exists = true
+            break
+        end
+    end
+    if not already_exists then
+        set_ids[#set_ids + 1] = this_id
+    end
+end, nil)
+
+-----------------------------
 -- change weapon
+-----------------------------
 -- app.mcHunterWeaponBuilder.updateRegularWp(System.Boolean)
 sdk.hook(sdk.find_type_definition("app.mcHunterWeaponBuilder"):get_method("updateRegularWp(System.Boolean)"),
 function(args)
     should_set_colliders = true
 end, nil)
 
+-----------------------------
 -- ui
+-----------------------------
 local UI_preset_table = {}
 local function update_UI_preset_table()
     for preset_name, preset_config in pairs(preset_configs) do
@@ -1419,6 +1809,7 @@ re.on_draw_ui(function()
     end
 
     if imgui.tree_node("Motion Value Manager") then
+        ui_on = true
         changed, config.enabled = imgui.checkbox("Enabled", config.enabled)
         if changed then should_set_colliders = true end
 
@@ -1490,6 +1881,14 @@ re.on_draw_ui(function()
                                 preset_configs[preset_name].motion_configs[hit_data.key].colliders[i] = new_collider
                             end
                         end
+                        preset_configs[preset_name].motion_configs[hit_data.key].shell_colliders = {}
+                        for i, shell_collider in spairs(hit_data.shell_colliders) do
+                            if shell_collider.group and shell_collider.set and shell_collider.col then
+                                local new_shell_collider = copy_table(shell_collider)
+                                new_shell_collider.address = nil
+                                preset_configs[preset_name].motion_configs[hit_data.key].shell_colliders[i] = new_shell_collider
+                            end
+                        end
                     end
                     imgui.tree_pop()
                 end
@@ -1523,6 +1922,7 @@ re.on_draw_ui(function()
                                 if imgui.tree_node("Colliders") then
                                     changed = ui_colliders(motion_config.colliders)
                                     if changed then should_set_colliders = true end
+                                    changed = ui_colliders(motion_config.shell_colliders)
                                     imgui.tree_pop()
                                 end
 
