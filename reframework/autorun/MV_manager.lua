@@ -805,6 +805,13 @@ local function get_wp()
     return wp
 end
 
+local function get_subwp()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    local subwp = hunter:get_SubWeapon()
+    return subwp
+end
+
 local function get_wp_type()
     local hunter = get_hunter()
     if not hunter then return nil end
@@ -827,12 +834,12 @@ local function get_wp_colliders()
     local group_count = wp_collider:getRequestSetGroupsCount()
     for i = 0, group_count - 1 do
         output[i] = {}
-        local num_request_sets = wp_collider:getNumRequestSets(i)
+        local num_request_sets = wp_collider:getNumRequestSetsFromIndex(i)
         for j = 0, num_request_sets - 1 do
             output[i][j] = {}
-            local num_collidables = wp_collider:getNumCollidables(i, j)
+            local num_collidables = wp_collider:getNumCollidablesFromIndex(i, j)
             for k = 0, num_collidables - 1 do
-                local collidable = wp_collider:getCollidable(i, j, k)
+                local collidable = wp_collider:getCollidableFromIndex(i, j, k)
                 output[i][j][k] = collidable
             end
         end
@@ -856,6 +863,23 @@ local function get_wp_collider(group, set, col)
     return wp_collider:getCollidable(group, set, col)
 end
 
+local function get_subwp_num_collidables(group, set)
+    local subwp = get_subwp()
+    if not subwp then return nil end
+    local subwp_collider = subwp:get_RequestSetCollider()
+    if not subwp_collider then return nil end
+    return subwp_collider:getNumCollidables(group, set)
+end
+
+local function get_subwp_collider(group, set, col)
+    local subwp = get_subwp()
+    if not subwp then return nil end
+    local subwp_collider = subwp:get_RequestSetCollider()
+    if not subwp_collider then return nil end
+    log.debug("subwp_collider: " .. string.format("%x", subwp_collider:get_address()))
+    return subwp_collider:getCollidable(group, set, col)
+end
+
 local function get_body_num_collidables(group, set)
     local hunter = get_hunter()
     if not hunter then return nil end
@@ -876,6 +900,17 @@ local function get_body_collider(group, set, col)
     return body_collider:getCollidable(group, set, col)
 end
 
+local function get_kinsect_num_sets(group)
+    local kinsect = get_kinsect()
+    if not kinsect then return nil end
+    local component = kinsect._Components
+    if not component then return nil end
+    local component_type = sdk.find_type_definition("app.Wp10Insect.COMPONENTS")
+    local kinsect_collider = sdk.get_native_field(component, component_type, "_RequestSetCol")
+    if not kinsect_collider then return nil end
+    return kinsect_collider:getNumRequestSetsFromIndex(group)
+end
+
 local function get_kinsect_num_collidables(group, set)
     local kinsect = get_kinsect()
     if not kinsect then return nil end
@@ -884,7 +919,7 @@ local function get_kinsect_num_collidables(group, set)
     local component_type = sdk.find_type_definition("app.Wp10Insect.COMPONENTS")
     local kinsect_collider = sdk.get_native_field(component, component_type, "_RequestSetCol")
     if not kinsect_collider then return nil end
-    return kinsect_collider:getNumCollidables(group, set)
+    return kinsect_collider:getNumCollidablesFromIndex(group, set)
 end
 
 local function get_kinsect_collider(group, set, col)
@@ -895,12 +930,14 @@ local function get_kinsect_collider(group, set, col)
     local component_type = sdk.find_type_definition("app.Wp10Insect.COMPONENTS")
     local kinsect_collider = sdk.get_native_field(component, component_type, "_RequestSetCol")
     if not kinsect_collider then return nil end
-    return kinsect_collider:getCollidable(group, set, col)
+    return kinsect_collider:getCollidableFromIndex(group, set, col)
 end
 
 local function get_num_collidables(part, group, set)
     if part == "Weapon" then
         return get_wp_num_collidables(group, set)
+    elseif part == "SubWeapon" then
+        return get_subwp_num_collidables(group, set)
     elseif part == "Body" then
         return get_body_num_collidables(group, set)
     elseif part == "Kinsect" then
@@ -913,6 +950,9 @@ local function get_collider(part, group, set, col)
         return get_body_collider(group, set, col)
     elseif part == "Kinsect" then
         return get_kinsect_collider(group, set, col)
+    elseif type(part) == "string" and part:sub(1, 3) == "Sub" then
+        log.debug("getting sub weapon collider")
+        return get_subwp_collider(group, set, col)
     else
         return get_wp_collider(group, set, col)
     end
@@ -1070,15 +1110,23 @@ end
 
 local function get_colliders(collidable, active_collider_list, weapon_type)
     local output = {}
+    log.debug(string.format("[MVManager] Getting colliders for %x", collidable:get_address()))
 
     local found = false
     local active_colliders = {}
     for i = 1, #active_collider_list do
         local active_part, active_group_id, active_set_id = active_collider_list[i].part, active_collider_list[i].group, active_collider_list[i].set
+        log.debug(string.format("[MVManager] Checking active collider: %s, group: %d, set: %d", active_part, active_group_id, active_set_id))
         -- local active_collider_set = wp_colliders[active_group_id][active_set_id]
         local num_collidables = get_num_collidables(active_part, active_group_id, active_set_id)
+        log.debug(string.format("[MVManager] Number of collidables: %d", num_collidables))
         for k = 0, num_collidables - 1 do
-            local collider_weapon_type = active_part == "Body" and "Body" or weapon_type
+            local collider_weapon_type = active_part
+            if active_part == "Weapon" or active_part == "SubWeapon" then
+                -- if is subweapon then weapon type already have prefix "Sub"
+                collider_weapon_type = weapon_type
+            end
+            log.debug("wp_type: " .. collider_weapon_type)
             local collider = get_collider(collider_weapon_type, active_group_id, active_set_id, k)
             active_colliders[#active_colliders + 1] = {
                 weapon_type = collider_weapon_type,
@@ -1087,6 +1135,7 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
                 col = k,
                 collider = collider,
             }
+            log.debug(string.format("[MVManager] Found collider: %x", collider:get_address()))
             if collider == collidable then
                 found = true
             end
@@ -1129,7 +1178,8 @@ local function get_kinsect_colliders(collidable)
 
     local found = false
     local active_colliders = {}
-    for set_id = 0, 10 do
+    local set_count = get_kinsect_num_sets(0)
+    for set_id = 0, set_count - 1 do
         active_colliders = {}
         local num_collidables = get_kinsect_num_collidables(0, set_id)
         if num_collidables then
@@ -1195,12 +1245,12 @@ local function get_shell_colliders(collidable, shell_collider_queue)
     -- local rsc = shell_collider_queue[#shell_collider_queue][1].rsc
     -- if rsc then
     --     for group = 0, 100 do
-    --         local num_sets = rsc:getNumRequestSets(group)
+    --         local num_sets = rsc:getNumRequestSetsFromIndex(group)
     --         if num_sets then
     --             for set = 0, 500 do
-    --                 local num_collidables = rsc:getNumCollidables(group, set)
+    --                 local num_collidables = rsc:getNumCollidablesFromIndex(group, set)
     --                 for col = 0, num_collidables - 1 do
-    --                     local collider = rsc:getCollidable(group, set, col)
+    --                     local collider = rsc:getCollidableFromIndex(group, set, col)
     --                     if collider and collider == collidable then
     --                         log.debug("[MVManager] Found shell collider in RSC: " .. get_collider_key(shell_collider_queue[#shell_collider_queue][1].weapon_type, group, set, col))
     --                     end
@@ -1268,7 +1318,9 @@ local function set_colliders()
                 -- check weapon state
                 local is_weapon = collider_config.weapon_type == "Body"
                 local current_wp_type = get_wp_type()
+                local current_subwp_type = "Sub" .. tostring(current_wp_type)
                 local is_weapon = is_weapon or collider_config.weapon_type == current_wp_type
+                local is_weapon = is_weapon or collider_config.weapon_type == current_subwp_type
                 local is_weapon = is_weapon or (collider_config.weapon_type == "Kinsect" and current_wp_type == 10)
                 if not is_weapon then goto continue1 end
                 local enabled = config.enabled and preset.enabled and motion_config.enabled and collider_config.enabled
@@ -1427,11 +1479,8 @@ local active_collider_list = {}
 local shell_collider_queue = {}
 local max_shell_collider_queue_size = 20
 
-local ui_on = false
-
 re.on_frame(
     function()
-        ui_on = false
         if should_set_colliders then
             local success = pcall(function()
                 set_colliders()
@@ -1475,7 +1524,7 @@ function(args)
 
     local motion_config = get_motion_config(hit_data.key)
 
-    if ui_on then
+    if reframework:is_drawing_ui() then
         hit_data.name = motion_config.name
         hit_data.preset_id = motion_config.preset_id
 
@@ -1492,9 +1541,29 @@ function(args)
     end
 end, nil)
 
+-- app.Weapon.evHit_AttackPreProcess(app.HitInfo)
+local is_weapon_hit = nil
+sdk.hook(sdk.find_type_definition("app.Weapon"):get_method("evHit_AttackPreProcess(app.HitInfo)"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    local this_hunter = this:get_Hunter()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    if this:get_IsSubWeapon() then
+        is_weapon_hit = "SubWeapon"
+    else
+        is_weapon_hit = "Weapon"
+    end
+end, function(retval)
+    is_weapon_hit = nil
+    return retval
+end)
+
 -- app.HunterCharacter.evHit_AttackPreProcess(app.HitInfo)
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"), 
 function(args)
+    log.debug("pre hunter evhit")
     if not config.enabled then return end
     local this_hunter = sdk.to_managed_object(args[2])
     if not this_hunter then return end
@@ -1503,8 +1572,14 @@ function(args)
     if not hit_info then return end
     local attack_data = hit_info:get_field("<AttackData>k__BackingField")
     if not attack_data then return end
+
+    local weapon_type = attack_data._WeaponType
+    if is_weapon_hit == "SubWeapon" then
+        weapon_type = "Sub" .. tostring(weapon_type)
+    end
+
     local hit_data = {
-        weapon_type = attack_data._WeaponType,
+        weapon_type = weapon_type,
         attack_index = hit_info:get_field("<AttackIndex>k__BackingField")._Index,
         attack_owner_name = hit_info:get_field("<AttackOwner>k__BackingField"):get_Name(),
         attack_owner_tag = hit_info:get_field("<AttackOwner>k__BackingField"):get_Tag(),
@@ -1514,7 +1589,7 @@ function(args)
 
     local motion_config = get_motion_config(hit_data.key)
 
-    if ui_on then
+    if reframework:is_drawing_ui() then
         hit_data.name = motion_config.name
         hit_data.preset_id = motion_config.preset_id
 
@@ -1544,7 +1619,7 @@ end, nil)
 local in_attack_collision = nil
 sdk.hook(sdk.find_type_definition("app.Weapon"):get_method("evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlWp, ace.MOTION_SEQUENCE_UPDATER_ARGS)"),
 function(args)
-    if not ui_on then return end
+    if not reframework:is_drawing_ui() then return end
     local this = sdk.to_managed_object(args[2])
     local this_hunter = this:get_Hunter()
     if not this_hunter then return end
@@ -1553,7 +1628,12 @@ function(args)
         active_collider_list = {}
         has_reset_collider_list = true
     end
-    in_attack_collision = "Weapon"
+    local is_sub = this:get_IsSubWeapon()
+    if is_sub then
+        in_attack_collision = "SubWeapon"
+    else
+        in_attack_collision = "Weapon"
+    end
 end, function(retval)
     in_attack_collision = nil
     return retval
@@ -1562,7 +1642,7 @@ end, nil)
 -- app.HunterCharacter.cMotionSupporter.evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlBody, ace.MOTION_SEQUENCE_UPDATER_ARGS)
 sdk.hook(sdk.find_type_definition("app.HunterCharacter.cMotionSupporter"):get_method("evMotionTrack_AttackCollision(app.motion_track.AttackCollision_PlBody, ace.MOTION_SEQUENCE_UPDATER_ARGS)"),
 function(args)
-    if not ui_on then return end
+    if not reframework:is_drawing_ui() then return end
     local this = sdk.to_managed_object(args[2])
     local this_hunter = this._Chara
     if not this_hunter then return end
@@ -1583,6 +1663,10 @@ sdk.hook( -- credits to kmyx
 	),
 	function(args)
         if not in_attack_collision then return end
+        local this = sdk.to_managed_object(args[2])
+        log.debug(string.format("[MVManager] ColliderSwitcher: %x", this:get_address()))
+        local rsc = this:get_RequestSetCollider()
+        log.debug(string.format("[MVManager] RequestSetCollider: %x", rsc:get_address()))
         local group_index = sdk.to_int64(args[4]) & 0xFFFFFFFF
 		local set_index = sdk.to_int64(args[5]) & 0xFFFFFFFF
         active_collider_list[#active_collider_list + 1] = {
@@ -1590,6 +1674,7 @@ sdk.hook( -- credits to kmyx
             group = group_index,
             set = set_index,
         }
+        log.debug(string.format("[MVManager] Activated collider for %s: group %d, set %d", in_attack_collision, group_index, set_index))
     end, nil
 )
 
@@ -1631,7 +1716,7 @@ local function handle_shell_colliders(shell_col_hit)
     for i = 1, #active_colliders do
         local active_collider = active_colliders[i]
         local key = get_collider_key(active_collider.weapon_type, active_collider.group, active_collider.set, active_collider.col)
-        if ui_on then
+        if reframework:is_drawing_ui() then
             output[i] = {
                 weapon_type = active_collider.weapon_type,
                 group = active_collider.group,
@@ -1649,7 +1734,7 @@ local function handle_shell_colliders(shell_col_hit)
             set_collider(collider_config, false, active_collider.collider)
         end
     end
-    if ui_on then
+    if reframework:is_drawing_ui() then
         push_queue(shell_collider_queue, output)
     end
 end
@@ -1694,54 +1779,56 @@ end, function(retval)
 end)
 
 -- app.mcShellPlPenetrateHit.onSetup()
-local shell_penetrate = nil
-sdk.hook(sdk.find_type_definition("app.mcShellPlPenetrateHit"):get_method("onSetup()"),
-function(args)
-    shell_penetrate = sdk.to_managed_object(args[2])
-    if not shell_penetrate then return end
-    local this_hunter = shell_penetrate:getHunter()
-    if not this_hunter then return end
-    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
-    in_create_shell = true
-    set_ids = nil
-end, function(retval)
-    if not in_create_shell then return retval end
-    in_create_shell = false
-    if not shell_penetrate then return retval end
-    local shell_col_hit = shell_penetrate._ShellColHit
-    handle_shell_colliders(shell_col_hit)
-    return retval
-end)
+local shell_post_threads = {}
+local function shell_post_pre(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local owner = this:get_Owner()
+    if not owner then return end
 
--- app.mcShellPlWp11Arrow.applyBottle()
-local apply_bottle_threads = {}
-sdk.hook(sdk.find_type_definition("app.mcShellPlWp11Arrow"):get_method("applyBottle()"),
-function(args)
-    local wp11_arrow = sdk.to_managed_object(args[2])
-    if not wp11_arrow then return end
-    local wp_handling = wp11_arrow:getWp11(false)
-    if not wp_handling then return end
-    local this_hunter = wp_handling:get_Hunter()
-    if not this_hunter then return end
-    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    -- get root owner, credits to kmyx
+    local shell_base = owner:call("getComponent(System.Type)", sdk.typeof("ace.ShellBase"))
+    -- if not shell_base then return end
+    ---@cast shell_base ace.ShellBase
+    local shell_owner = shell_base:get_ShellOwner()
+    local shell_transform = shell_owner:get_Transform()
+
+    for _ = 1, 100 do
+        local parent = shell_transform:get_Parent()
+        if parent then
+            shell_transform = parent
+        else
+            break
+        end
+    end
+
+    local actual_owner = shell_transform:get_GameObject()
+    if not actual_owner then return end
+    if actual_owner:get_Name() ~= "MasterPlayer" then return end
     
-    if #apply_bottle_threads == 0 then
+    if #shell_post_threads == 0 then
         set_ids = nil
     end
 
-    apply_bottle_threads[#apply_bottle_threads + 1] = wp11_arrow
-end, function(retval)
-    if #apply_bottle_threads == 0 then return retval end
-    local wp11_arrow = apply_bottle_threads[1]
-    table.remove(apply_bottle_threads, 1)
-    local shell_col_hit = wp11_arrow._ShellColHitComponent
+    shell_post_threads[#shell_post_threads + 1] = this
+end
+
+local function shell_post_post(retval)
+    if #shell_post_threads == 0 then return retval end
+    local this = shell_post_threads[1]
+    table.remove(shell_post_threads, 1)
+    local shell_col_hit = this._ShellColHitComponent
     handle_shell_colliders(shell_col_hit)
     return retval
-end)
+end
+
+sdk.hook(sdk.find_type_definition("app.mcShellPlPenetrateHit"):get_method("onSetup()"), shell_post_pre, shell_post_post)
+sdk.hook(sdk.find_type_definition("app.mcShellPlWp11Arrow"):get_method("applyBottle()"), shell_post_pre, shell_post_post)
+sdk.hook(sdk.find_type_definition("app.mcShellPlWp09"):get_method("onSetup()"), shell_post_pre, shell_post_post)
 
 sdk.hook(sdk.find_type_definition("app.HitController"):get_method("refreshHitID(System.UInt32, app.Hit.HIT_ID_GROUP, System.UInt32)"),
 function(args)
-    if not in_create_shell and #apply_bottle_threads == 0 then return end
+    if not in_create_shell and #shell_post_threads == 0 then return end
     set_ids = set_ids or {}
     local this_id = sdk.to_int64(args[3]) & 0xFFFFFFFF
     local already_exists = false
@@ -1809,7 +1896,6 @@ re.on_draw_ui(function()
     end
 
     if imgui.tree_node("Motion Value Manager") then
-        ui_on = true
         changed, config.enabled = imgui.checkbox("Enabled", config.enabled)
         if changed then should_set_colliders = true end
 
