@@ -31,7 +31,6 @@ sdk.hook(sdk.find_type_definition("app.Wp10Insect"):get_method("setExtraStock(ap
 function(args)
     local Wp10Insect = sdk.to_managed_object(args[2])
     if not Wp10Insect then return end
-    -- log.debug("Wp10Insect: " .. string.format("%X", Wp10Insect:get_address()))
     local hunter = Wp10Insect:get_Hunter()
     if not hunter:get_IsMaster() then return end
 
@@ -46,11 +45,9 @@ function(args)
 
     if not config.enabled then return end
 
-    local is_aim_attack_tripple_extra_get = Wp10Insect.IsAimAttackTrippleExtraGet
-    -- log.debug("is_aim_attack_tripple_extra_get: " .. tostring(is_aim_attack_tripple_extra_get))
-    if is_aim_attack_tripple_extra_get then
-        Wp10Insect:setExtract(true, true, true, true)
-    end
+    -- local flag = Wp10Insect:checkInsectActionFlag(4)
+    -- log.debug("flag: " .. tostring(flag))
+    Wp10Insect:offInsectActionFlag(4)
 
     local extra_stock_num = Wp10Insect._ExtraStockNum
     local extra_stock = Wp10Insect:get_ExtraStock():get_elements()
@@ -82,10 +79,6 @@ function(args)
     -- log.debug("new_count: " .. tostring(new_count))
     -- log.debug("color_counts: " .. tostring(color_counts[0]) .. " " .. tostring(color_counts[1]) .. " " .. tostring(color_counts[2]) .. " " .. tostring(color_counts[3]))
 
-    if is_aim_attack_tripple_extra_get then
-        skip_color = 3 -- skip green
-        return
-    end
     if new_count <= extra_stock_num then
         return
     end
@@ -110,6 +103,7 @@ function(args)
     local value = args[3]
     local value_type = sdk.find_type_definition("System.Int32")
     local m_value = sdk.get_native_field(value, value_type, "m_value")
+    -- log.debug("m_value: " .. tostring(m_value))
     if m_value == skip_color then
         skip_color = -1
         return sdk.PreHookResult.SKIP_ORIGINAL
