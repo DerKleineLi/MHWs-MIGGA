@@ -876,7 +876,6 @@ local function get_subwp_collider(group, set, col)
     if not subwp then return nil end
     local subwp_collider = subwp:get_RequestSetCollider()
     if not subwp_collider then return nil end
-    log.debug("subwp_collider: " .. string.format("%x", subwp_collider:get_address()))
     return subwp_collider:getCollidable(group, set, col)
 end
 
@@ -951,7 +950,6 @@ local function get_collider(part, group, set, col)
     elseif part == "Kinsect" then
         return get_kinsect_collider(group, set, col)
     elseif type(part) == "string" and part:sub(1, 3) == "Sub" then
-        log.debug("getting sub weapon collider")
         return get_subwp_collider(group, set, col)
     else
         return get_wp_collider(group, set, col)
@@ -1110,23 +1108,19 @@ end
 
 local function get_colliders(collidable, active_collider_list, weapon_type)
     local output = {}
-    log.debug(string.format("[MVManager] Getting colliders for %x", collidable:get_address()))
 
     local found = false
     local active_colliders = {}
     for i = 1, #active_collider_list do
         local active_part, active_group_id, active_set_id = active_collider_list[i].part, active_collider_list[i].group, active_collider_list[i].set
-        log.debug(string.format("[MVManager] Checking active collider: %s, group: %d, set: %d", active_part, active_group_id, active_set_id))
         -- local active_collider_set = wp_colliders[active_group_id][active_set_id]
         local num_collidables = get_num_collidables(active_part, active_group_id, active_set_id)
-        log.debug(string.format("[MVManager] Number of collidables: %d", num_collidables))
         for k = 0, num_collidables - 1 do
             local collider_weapon_type = active_part
             if active_part == "Weapon" or active_part == "SubWeapon" then
                 -- if is subweapon then weapon type already have prefix "Sub"
                 collider_weapon_type = weapon_type
             end
-            log.debug("wp_type: " .. collider_weapon_type)
             local collider = get_collider(collider_weapon_type, active_group_id, active_set_id, k)
             active_colliders[#active_colliders + 1] = {
                 weapon_type = collider_weapon_type,
@@ -1135,7 +1129,6 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
                 col = k,
                 collider = collider,
             }
-            log.debug(string.format("[MVManager] Found collider: %x", collider:get_address()))
             if collider == collidable then
                 found = true
             end
@@ -1563,7 +1556,6 @@ end)
 -- app.HunterCharacter.evHit_AttackPreProcess(app.HitInfo)
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"), 
 function(args)
-    log.debug("pre hunter evhit")
     if not config.enabled then return end
     local this_hunter = sdk.to_managed_object(args[2])
     if not this_hunter then return end
@@ -1664,9 +1656,7 @@ sdk.hook( -- credits to kmyx
 	function(args)
         if not in_attack_collision then return end
         local this = sdk.to_managed_object(args[2])
-        log.debug(string.format("[MVManager] ColliderSwitcher: %x", this:get_address()))
         local rsc = this:get_RequestSetCollider()
-        log.debug(string.format("[MVManager] RequestSetCollider: %x", rsc:get_address()))
         local group_index = sdk.to_int64(args[4]) & 0xFFFFFFFF
 		local set_index = sdk.to_int64(args[5]) & 0xFFFFFFFF
         active_collider_list[#active_collider_list + 1] = {
@@ -1674,7 +1664,6 @@ sdk.hook( -- credits to kmyx
             group = group_index,
             set = set_index,
         }
-        log.debug(string.format("[MVManager] Activated collider for %s: group %d, set %d", in_attack_collision, group_index, set_index))
     end, nil
 )
 
