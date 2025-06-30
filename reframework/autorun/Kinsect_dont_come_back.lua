@@ -159,17 +159,8 @@ end, function(retval)
     return retval
 end)
 
--- app.Wp10InsectAction.cPassBase.update()
-sdk.hook(sdk.find_type_definition("app.Wp10InsectAction.cPassBase"):get_method("update"),
-function(args)
-    in_motion["combo_attacks_end"] = true
-end, function(retval)
-    in_motion["combo_attacks_end"] = false
-    return retval
-end)
-
--- app.Wp10InsectAction.cFightTogetherConstBase.update()
-sdk.hook(sdk.find_type_definition("app.Wp10InsectAction.cFightTogetherConstBase"):get_method("update"),
+-- app.cWp10InsectActionBase.update()
+sdk.hook(sdk.find_type_definition("app.cWp10InsectActionBase"):get_method("update()"),
 function(args)
     local this = sdk.to_managed_object(args[2])
     if not this then return end
@@ -177,9 +168,27 @@ function(args)
     if not this_hunter then return end
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
 
-    in_motion["helicopter_end"] = true
+    local this_type = this:get_type_definition()
+    local parent_types = {}
+    local parent_type = this_type
+    while parent_type:get_full_name() ~= "app.cWp10InsectActionBase" do
+        parent_types[parent_type:get_full_name()] = true
+        parent_type = parent_type:get_parent_type()
+        if not parent_type then break end
+    end
+
+    if parent_types["app.Wp10InsectAction.cPassBase"] then
+        in_motion["combo_attacks_end"] = true
+    elseif parent_types["app.Wp10InsectAction.cFightTogetherConstBase"] then
+        in_motion["helicopter_end"] = true
+    elseif parent_types["app.Wp10InsectAction.cAimAttack"] then
+        in_motion["aim_attack_end"] = true
+    end
+
 end, function(retval)
+    in_motion["combo_attacks_end"] = false
     in_motion["helicopter_end"] = false
+    in_motion["aim_attack_end"] = false
     return retval
 end)
 
@@ -195,21 +204,6 @@ function(args)
     in_motion["aim_attack_start"] = true
 end, function(retval)
     in_motion["aim_attack_start"] = false
-    return retval
-end)
-
--- app.Wp10InsectAction.cAimAttack.update()
-sdk.hook(sdk.find_type_definition("app.Wp10InsectAction.cAimAttack"):get_method("update"),
-function(args)
-    local this = sdk.to_managed_object(args[2])
-    if not this then return end
-    local this_hunter = this:get_Hunter()
-    if not this_hunter then return end
-    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
-
-    in_motion["aim_attack_end"] = true
-end, function(retval)
-    in_motion["aim_attack_end"] = false
     return retval
 end)
 
@@ -292,16 +286,21 @@ end, nil)
 
 -- app.cWp10InsectActionBase.enter()
 local cJumpSlashBack = nil
-sdk.hook(sdk.find_type_definition("app.Wp10InsectAction.cJumpSlashBack"):get_method("enter()"),
+sdk.hook(sdk.find_type_definition("app.cWp10InsectActionBase"):get_method("enter()"),
 function(args)
-    cJumpSlashBack = sdk.to_managed_object(args[2])
-    if not cJumpSlashBack then return end
-    local cJumpSlashBack_hunter = cJumpSlashBack:get_Hunter()
-    if not cJumpSlashBack_hunter then return end
-    if not (cJumpSlashBack_hunter:get_IsMaster() and cJumpSlashBack_hunter:get_IsUserControl()) then 
-        cJumpSlashBack = nil
-        return 
+    cJumpSlashBack = nil
+
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Hunter()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    local this_type = this:get_type_definition():get_full_name()
+    if this_type == "app.Wp10InsectAction.cJumpSlashBack" then
+        cJumpSlashBack = this
     end
+
 end, function(retval)
     if cJumpSlashBack and force_instant_recall then
         cJumpSlashBack._BackTime = 0.1
@@ -309,6 +308,7 @@ end, function(retval)
     end
     return retval
 end)
+
 
 -- square recall kinsect
 -- app.cPlayerCommandController.update
@@ -339,8 +339,20 @@ end)
 
 -- Colab
 -- app.Wp10Action.cWp10BatonAttackBase.get_EnableInsectFightTogether()
+local is_master_insect_fight_together = false
 sdk.hook(sdk.find_type_definition("app.Wp10Action.cWp10BatonAttackBase"):get_method("get_EnableInsectFightTogether()"),
-nil, function (retval)
+function(args)
+    is_master_insect_fight_together = false
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    is_master_insect_fight_together = true
+end, function (retval)
+    if not is_master_insect_fight_together then return retval end
+
     local colab_type = colab_types[config.colab_type]
     if not colab_type then return retval end
     if colab_type == "Unchanged" then return retval end
