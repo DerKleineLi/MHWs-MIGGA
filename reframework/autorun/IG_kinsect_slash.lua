@@ -18,10 +18,15 @@ local saved_config = json.load_file("IG_kinsect_slash.json") or {}
 
 local config = {
     enabled = true,
-    recall_kinsect_tripple_up = true,
+    recall_kinsect_tripple_up = false,
     recall_kinsect_no_tripple_up = true,
+    recall_kinsect_on_hit_tripple_up = false,
+    recall_kinsect_on_hit_no_tripple_up = true,
     enemy_step_direction_fix = true,
+    enemy_step_direction_fix_lagged = false,
     fall_direction_fix = true,
+    disable_scar_reaction = true,
+    disable_scar_reaction_lagged = false,
     trigger_on_everything = false,
     unlimited_jump = false,
 }
@@ -66,6 +71,34 @@ local function get_kinsect()
     if not hunter then return nil end
     local kinsect = hunter:get_Wp10Insect()
     return kinsect
+end
+
+local function get_action()
+    local hunter = get_hunter()
+    local action_controller     = hunter:get_BaseActionController()
+    if not action_controller then return nil end
+    local action_id = action_controller:get_CurrentActionID()
+    if not action_id then return nil end
+    local action_id_type = sdk.find_type_definition("ace.ACTION_ID")
+    return {
+        Index = sdk.get_native_field(action_id, action_id_type, "_Index"),
+        Category = sdk.get_native_field(action_id, action_id_type, "_Category"),
+    }
+end
+
+local function get_action_by_id(category, index)
+    local hunter = get_hunter()
+    local action_controller = hunter:get_BaseActionController()
+    if not action_controller then return nil end
+    local action = action_controller:call("getAction(System.Int32, System.Int32)", index, category)
+    return action
+end
+
+local function get_enable_insect_fight_together()
+    local upslash_action = get_action_by_id(2, 5)
+    if not upslash_action then return false end
+    local enable_insect_fight_together = upslash_action:get_EnableInsectFightTogether()
+    return enable_insect_fight_together
 end
 
 local function change_action(layer, category, index)
@@ -175,6 +208,7 @@ local fall_dir = {0.0, 0.0, 0.0}
 local fall_fade_frame = 0
 
 local should_jump = false
+local lagged_jump = false
 
 local should_kinsect_out = false
 local kinsect_out = false
@@ -196,6 +230,8 @@ function(retval)
     return retval
 end)
 
+local last_time = nil
+local start_fall = nil
 re.on_frame(function()
     if not config.enabled then return end
     local motion = get_motion()
@@ -204,15 +240,21 @@ re.on_frame(function()
     if not Wp10Handling then return end
     local kinsect = get_kinsect()
     if not kinsect then return end
+
+    local current_time = os.clock()
+    local elapsed_frame = last_time and (current_time - last_time) * 60 or 1
+    elapsed_frame = elapsed_frame > 1 and elapsed_frame or 1
+    last_time = current_time
     
     in_thrust = motion.MotionBankID == 20 and motion.MotionID == 466
     in_kinsect_slash_jump = in_kinsect_slash_jump and motion.MotionBankID == 20 and motion.MotionID == 193
     if not (motion.MotionBankID == 20 and motion.MotionID == 190) then
         in_kinsect_slash_fall = 0
     end
-    local kinsect_on_arm = kinsect:get_field("<IsArmConst>k__BackingField")
+    -- local kinsect_on_arm = kinsect:get_field("<IsArmConst>k__BackingField")
     should_jump = should_jump and in_thrust and (config.unlimited_jump or Wp10Handling:checkEnableEnemyStepCount())
     R1_released = (R1_released or (not key_R1_down)) and in_thrust
+    lagged_jump = (lagged_jump or (should_jump and not R1_released)) and (should_jump or in_kinsect_slash_jump)
 
     if should_jump then
         if R1_released and not in_kinsect_slash_jump then
@@ -225,7 +267,7 @@ re.on_frame(function()
     end
 
     if should_kinsect_out then
-        if kinsect_on_arm then
+        if get_enable_insect_fight_together() then -- kinsect_on_arm
             change_kinsect_action(0, 20) -- send out
             kinsect_out = true
             should_kinsect_out = false
@@ -242,10 +284,11 @@ re.on_frame(function()
         end
     end
 
-    if motion.Frame > motion.EndFrame - 2 then
+    if motion.Frame > motion.EndFrame - 2 - elapsed_frame then
         if in_thrust and R1_released then
             change_motion(20, 190, 0, 20, 2, 1) -- kinsect slash fall
             in_kinsect_slash_fall = 1
+            start_fall = current_time
             in_kinsect_slash_jump = false
             in_thrust = false
             local input_dir = get_input_dir()
@@ -273,7 +316,7 @@ re.on_frame(function()
         omnimove_disabled = false
         omnimove_enabled_this_frame = true
     end
-    if in_kinsect_slash_jump and config.enemy_step_direction_fix then
+    if in_kinsect_slash_jump and (config.enemy_step_direction_fix and not lagged_jump or config.enemy_step_direction_fix_lagged and lagged_jump) then
         local y_speed = 8.0 * (1 - motion.Frame / 120)
         local xz_speed = 10.0 * (1 - motion.Frame / 55)
         y_speed = y_speed > 0 and y_speed or 0
@@ -292,7 +335,8 @@ re.on_frame(function()
         omnimove_enabled_this_frame = true
     end
     if in_kinsect_slash_fall > 0 and config.fall_direction_fix then
-        local eq_frame = (in_kinsect_slash_fall - 1) * (motion.EndFrame - 2) + motion.Frame
+        -- local eq_frame = (in_kinsect_slash_fall - 1) * (motion.EndFrame - 2) + motion.Frame
+        local eq_frame = (current_time - start_fall) * 60
         local speed = 10.0 * (1 - eq_frame / fall_fade_frame)
         speed = speed > 0 and speed or 0
 
@@ -350,21 +394,72 @@ function(args)
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
 
     if kinsect_out then
-        change_kinsect_action(0, 17) -- call back
+        local Wp10Handling = get_wp()
+        if not Wp10Handling then return end
+        local is_tripple_up = Wp10Handling:get_IsTrippleUp()
+        local recall_kinsect = config.recall_kinsect_on_hit_tripple_up and is_tripple_up or config.recall_kinsect_on_hit_no_tripple_up and not is_tripple_up
+        if recall_kinsect then
+            change_kinsect_action(0, 17) -- call back
+        end
         kinsect_out = false
     end
 end)
 
+-- prevent force kinsect recall when the colab attack didn't hit the enemy.
+-- app.Wp10Insect.requestChangeAction(ace.ACTION_ID, System.Boolean)
+sdk.hook(sdk.find_type_definition("app.Wp10Insect"):get_method("requestChangeAction(ace.ACTION_ID, System.Boolean)"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Hunter()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    kinsect_out = false
+end, nil)
+-- app.Wp10Insect.requestChangePassAction(ace.ACTION_ID, System.Boolean, System.Boolean, System.Single, via.vec3, System.Single, System.Boolean)
+sdk.hook(sdk.find_type_definition("app.Wp10Insect"):get_method("requestChangePassAction(ace.ACTION_ID, System.Boolean, System.Boolean, System.Single, via.vec3, System.Single, System.Boolean)"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Hunter()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    kinsect_out = false
+end, nil)
+
+-- Scar Reaction
+sdk.hook(sdk.find_type_definition("app.cHunterWeaponHandlingBase"):get_method("evHit_AttackPreProcess(app.HitInfo, System.Boolean, System.Boolean)"), 
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Hunter()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+    local hit_info = sdk.to_managed_object(args[3])
+    if not hit_info then return end
+    local attack_data = hit_info:get_field("<AttackData>k__BackingField")
+    if not attack_data then return end
+
+    if not in_thrust then return end
+    if (config.disable_scar_reaction and R1_released) or (config.disable_scar_reaction_lagged and not R1_released) then
+        attack_data._IsPrePointHitReaction = false
+    end
+end, nil)
 
 re.on_draw_ui(function()
     local changed, any_changed = false, false
 
     if imgui.tree_node("Insect Glaive Kinsect Slash") then
         changed, config.enabled = imgui.checkbox("Enabled", config.enabled)
-        changed, config.recall_kinsect_tripple_up = imgui.checkbox("Recall Kinsect Tripple Up", config.recall_kinsect_tripple_up)
-        changed, config.recall_kinsect_no_tripple_up = imgui.checkbox("Recall Kinsect No Tripple Up", config.recall_kinsect_no_tripple_up)
+        changed, config.recall_kinsect_tripple_up = imgui.checkbox("Pre Recall Kinsect Tripple Up", config.recall_kinsect_tripple_up)
+        changed, config.recall_kinsect_no_tripple_up = imgui.checkbox("Pre Recall Kinsect No Tripple Up", config.recall_kinsect_no_tripple_up)
+        changed, config.recall_kinsect_on_hit_tripple_up = imgui.checkbox("Recall Kinsect on Hit Tripple Up", config.recall_kinsect_on_hit_tripple_up)
+        changed, config.recall_kinsect_on_hit_no_tripple_up = imgui.checkbox("Recall Kinsect on Hit No Tripple Up", config.recall_kinsect_on_hit_no_tripple_up)
         changed, config.enemy_step_direction_fix = imgui.checkbox("Enemy Step Direction Fix", config.enemy_step_direction_fix)
+        changed, config.enemy_step_direction_fix_lagged = imgui.checkbox("Enemy Step Direction Fix Lagged", config.enemy_step_direction_fix_lagged)
         changed, config.fall_direction_fix = imgui.checkbox("Fall Direction Fix", config.fall_direction_fix)
+        changed, config.disable_scar_reaction = imgui.checkbox("Disable Scar Reaction", config.disable_scar_reaction)
+        changed, config.disable_scar_reaction_lagged = imgui.checkbox("Disable Scar Reaction Lagged", config.disable_scar_reaction_lagged)
         changed, config.trigger_on_everything = imgui.checkbox("Trigger on Everything", config.trigger_on_everything)
         changed, config.unlimited_jump = imgui.checkbox("Unlimited Jump", config.unlimited_jump)
         imgui.tree_pop()
