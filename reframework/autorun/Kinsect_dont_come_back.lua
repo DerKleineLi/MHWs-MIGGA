@@ -160,6 +160,7 @@ end, function(retval)
 end)
 
 -- app.cWp10InsectActionBase.update()
+local parallel_call = 0
 sdk.hook(sdk.find_type_definition("app.cWp10InsectActionBase"):get_method("update()"),
 function(args)
     local this = sdk.to_managed_object(args[2])
@@ -167,6 +168,8 @@ function(args)
     local this_hunter = this:get_Hunter()
     if not this_hunter then return end
     if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    parallel_call = parallel_call + 1
 
     local this_type = this:get_type_definition()
     local parent_types = {}
@@ -184,12 +187,19 @@ function(args)
     elseif parent_types["app.Wp10InsectAction.cAimAttack"] then
         in_motion["aim_attack_end"] = true
     end
-
 end, function(retval)
+    parallel_call = parallel_call - 1
+    if parallel_call > 0 then return retval end
+
     in_motion["combo_attacks_end"] = false
     in_motion["helicopter_end"] = false
     in_motion["aim_attack_end"] = false
     return retval
+end)
+
+-- security
+re.on_frame(function()
+    parallel_call = 0
 end)
 
 -- app.Wp10Action.cAimAttack.doEnter()
