@@ -78,6 +78,23 @@ local function get_motion_data() -- credits to lingsamuel
     return result
 end
 
+local function get_merged_input()
+    local player_manager = sdk.get_managed_singleton("app.PlayerManager")
+    if not player_manager then return nil end
+    local player_info = player_manager:getMasterPlayer()
+    if not player_info then return nil end
+    local hunter_controller = player_info:get_Controller()
+    if not hunter_controller then return nil end
+    local hunter_controller_entity_holder = hunter_controller:get_ControllerEntityHolder()
+    if not hunter_controller_entity_holder then return nil end
+    local master_player_controler_entity = hunter_controller_entity_holder:get_Master()
+    if not master_player_controler_entity then return nil end
+    local command_controller = master_player_controler_entity:get_CommandController()
+    if not command_controller then return nil end
+    local player_game_input_base = command_controller:get_MergedVirtualInput()
+    return player_game_input_base
+end
+
 local function get_input()
     local player_manager = sdk.get_managed_singleton("app.PlayerManager")
     if not player_manager then return nil end
@@ -328,6 +345,22 @@ local MotionStage = {
     InTriggeredLeftDoubleStab = 1,
 }
 local motion_stage = MotionStage.None
+local last_triangle_is_back_forward = false
+
+-- app.cPlayerCommandController.update
+sdk.hook(sdk.find_type_definition("app.cPlayerCommandController"):get_method("update"), nil, 
+function(retval)
+    local player_input = get_merged_input()
+    if not player_input then return end
+    local key_idx = 0 -- triangle
+    local key = player_input:getKey(key_idx)
+    local on_trigger = key:get_OnTrigger()
+    if on_trigger then
+        last_triangle_is_back_forward = get_is_back_forward()
+    end
+
+    return retval
+end)
 
 -- app.Wp10Action.cWp10BatonAttackBase.doEnter()
 local should_left_double_stab = false
@@ -358,7 +391,7 @@ function(args)
     local is_combo1_charge_no_aim = this_type_name == "app.Wp10Action.cBatonMoveAttackNoCombo"
     -- log.debug("doEnter() called on: " .. this_type_name)
 
-    should_left_double_stab = config.hotkey_left_double_stab and get_is_back_forward() and is_target_attack
+    should_left_double_stab = config.hotkey_left_double_stab and last_triangle_is_back_forward and is_target_attack
     should_left_double_stab = should_left_double_stab or (config.combo1_no_charge and is_combo1_charge_no_aim)
 
 end,
@@ -408,7 +441,7 @@ end, function(retval)
     local motion_bank_id = motion_data.MotionBankID
     local frame = motion_data.Frame
 
-    if config.hotkey_left_double_stab and get_is_back_forward() then
+    if config.hotkey_left_double_stab and last_triangle_is_back_forward then
         layer:call("changeMotion(System.UInt32, System.UInt32, System.Single, System.Single, via.motion.InterpolationMode, via.motion.InterpolationCurve)", 
             20, 278, 0.0, 10.0, 1, 0) -- left double
         motion_stage = MotionStage.InTriggeredLeftDoubleStab

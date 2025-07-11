@@ -18,6 +18,8 @@ local saved_config = json.load_file("IG_better_cancel.json") or {}
 
 local config = {
     dodge = true,
+    dodge_delay = 40,
+    dodge_imba = false,
     move = false,
     move_delay = 2,
     jump = true,
@@ -48,10 +50,26 @@ re.on_config_save(
     end
 )
 
+-- helper functions
+local function get_action()
+    local hunter = get_hunter()
+    local action_controller     = hunter:get_BaseActionController()
+    if not action_controller then return nil end
+    local action_id = action_controller:get_CurrentActionID()
+    if not action_id then return nil end
+    local action_id_type = sdk.find_type_definition("ace.ACTION_ID")
+    return {
+        Index = sdk.get_native_field(action_id, action_id_type, "_Index"),
+        Category = sdk.get_native_field(action_id, action_id_type, "_Category"),
+    }
+end
+
 -- global vars
 -- delay the All movement cancel
 local ground_mult_prev = false -- if all ground cancel avaliable in the last frame
-local all_timer = 0 -- frame timer for all ground cancel available
+local all_start = 0 -- frame timer for all ground cancel available
+
+local dodge_start = 0 -- frame timer for dodge cancel
 
 local Wp10Insect = nil -- kinsect object
 local hunter = nil -- hunter object
@@ -119,6 +137,18 @@ end, function(retval)
     return retval
 end)
 
+-- app.Wp10Action.cDodge.doEnter()
+sdk.hook(sdk.find_type_definition("app.Wp10Action.cDodge"):get_method("doEnter"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local this_hunter = this:get_Chara()
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    dodge_start = os.clock()
+end)
+
 -- hook for better cancel
 local function preHook(args)
     force_all_cancel = false
@@ -155,9 +185,12 @@ local function preHook(args)
     local air_pre = _Pre_AIR_ATTACK or _Pre_AIR_DODGE or _Pre_CHARGE
     local air = _AIR_ATTACK or _AIR_DODGE or _CHARGE
 
+    local current_time = os.clock()
+
     if config.dodge then
-        Wp10Cancel:set_field("_PreDodge", _PreDodge or ground_pre)
-        Wp10Cancel:set_field("_Dodge", _Dodge or ground)
+        local can_dodge = current_time - dodge_start >= config.dodge_delay / 60
+        Wp10Cancel:set_field("_PreDodge", (config.dodge_imba or _PreDodge or ground_pre) and can_dodge)
+        Wp10Cancel:set_field("_Dodge", (config.dodge_imba or _Dodge or ground) and can_dodge)
     end
     if config.jump then
         Wp10Cancel:set_field("_Pre_JUMP", _Pre_JUMP or ground_pre)
@@ -216,15 +249,12 @@ local function preHook(args)
     end
     if (not in_charged_attack or _Pre_ATTACK_00_COMBO) then
         if config.move then
-            Wp10Cancel:set_field("_Move", _Move or (ground_mult and ground_mult_prev and all_timer == 0))
+            Wp10Cancel:set_field("_Move", _Move or (ground_mult and ground_mult_prev and (current_time - all_start >= config.move_delay / 60)))
         end
     end
 
     if ground_mult and not ground_mult_prev then
-        all_timer = config.move_delay
-    end
-    if all_timer > 0 then
-        all_timer = all_timer - 1
+        all_start = os.clock()
     end
     
     ground_mult_prev = ground_mult
@@ -686,6 +716,10 @@ re.on_draw_ui(function()
             changed, config.move_delay = imgui.slider_int("Move Delay", config.move_delay, 0, 120)
         end
         changed, config.dodge = imgui.checkbox("Dodge", config.dodge)
+        if config.dodge then
+            changed, config.dodge_delay = imgui.slider_int("Dodge Delay", config.dodge_delay, 0, 60)
+            changed, config.dodge_imba = imgui.checkbox("Dodge Imba", config.dodge_imba)
+        end
         changed, config.jump = imgui.checkbox("Jump", config.jump)
         changed, config.ground_attacks = imgui.checkbox("Ground Attacks", config.ground_attacks)
         changed, config.air = imgui.checkbox("Air", config.air)
