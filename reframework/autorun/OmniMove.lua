@@ -522,7 +522,6 @@ re.on_draw_ui(function()
                     imgui.tree_pop()
                 end
                 imgui_vec3(config.global_motion_config.direction_vector)
-                config.global_motion_config.direction_vector[3] = direction_vector.z
                 if imgui.tree_node("Speed Type:") then
                     imgui.text("LStick: speed scales linearly with the Lstick magnitude.")
                     imgui.text("LStick Trigger: speed is 0 until the Lstick trigger threshold is reached, afterwards the max speed.")
