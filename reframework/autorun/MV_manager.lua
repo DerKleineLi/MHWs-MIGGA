@@ -1553,6 +1553,77 @@ end, function(retval)
     return retval
 end)
 
+--app.mcShellColHit.evAttackPreProcess(app.HitInfo)
+sdk.hook(sdk.find_type_definition("app.mcShellColHit"):get_method("evAttackPreProcess(app.HitInfo)"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local owner = this:get_Owner()
+    if not owner then return end
+
+    -- get root owner, credits to kmyx
+    local shell_base = owner:call("getComponent(System.Type)", sdk.typeof("ace.ShellBase"))
+    -- if not shell_base then return end
+    ---@cast shell_base ace.ShellBase
+    local shell_owner = shell_base:get_ShellOwner()
+    local shell_transform = shell_owner:get_Transform()
+
+    for _ = 1, 100 do
+        local parent = shell_transform:get_Parent()
+        if parent then
+            shell_transform = parent
+        else
+            break
+        end
+    end
+
+    local actual_owner = shell_transform:get_GameObject()
+    if not actual_owner then return end
+    if actual_owner:get_Name() ~= "MasterPlayer" then return end
+
+    local hit_info = sdk.to_managed_object(args[3])
+    if not hit_info then return end
+    local attack_data = hit_info:get_field("<AttackData>k__BackingField")
+    if not attack_data then return end
+    
+    local weapon_type = attack_data._WeaponType
+    if is_weapon_hit == "SubWeapon" then
+        weapon_type = "Sub" .. tostring(weapon_type)
+    end
+
+    local hit_data = {
+        weapon_type = weapon_type,
+        attack_index = hit_info:get_field("<AttackIndex>k__BackingField")._Index,
+        attack_owner_name = hit_info:get_field("<AttackOwner>k__BackingField"):get_Name(),
+        attack_owner_tag = hit_info:get_field("<AttackOwner>k__BackingField"):get_Tag(),
+        attack_name = attack_data:get_field("_UserData"):get_Name(),
+    }
+    hit_data.key = get_key(hit_data)
+
+    local motion_config = get_motion_config(hit_data.key)
+
+    if reframework:is_drawing_ui() then
+        hit_data.name = motion_config.name
+        hit_data.preset_id = motion_config.preset_id
+
+        hit_data.properties = get_properties(attack_data)
+        if hit_data.properties.IsSensor.value then return end
+
+        hit_data.shell_colliders = get_shell_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), shell_collider_queue)
+        hit_data.colliders = {}
+
+        push_queue(hit_data_queue, hit_data)
+    end
+
+    if motion_config.enabled then
+        set_properties(attack_data, motion_config.properties)
+    end
+
+end, function(retval)
+    -- is_weapon_hit = nil
+    return retval
+end)
+
 -- app.HunterCharacter.evHit_AttackPreProcess(app.HitInfo)
 sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"), 
 function(args)
@@ -1577,6 +1648,9 @@ function(args)
         attack_owner_tag = hit_info:get_field("<AttackOwner>k__BackingField"):get_Tag(),
         attack_name = attack_data:get_field("_UserData"):get_Name(),
     }
+
+    if contains_token(hit_data.attack_owner_tag, "Shell") then return end
+
     hit_data.key = get_key(hit_data)
 
     local motion_config = get_motion_config(hit_data.key)
@@ -1588,13 +1662,8 @@ function(args)
         hit_data.properties = get_properties(attack_data)
         if hit_data.properties.IsSensor.value then return end
 
-        if contains_token(hit_data.attack_owner_tag, "Shell") then
-            hit_data.shell_colliders = get_shell_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), shell_collider_queue)
-            hit_data.colliders = {}
-        else
-            hit_data.colliders = get_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), active_collider_list, hit_data.weapon_type)
-            hit_data.shell_colliders = {}
-        end
+        hit_data.colliders = get_colliders(hit_info:get_field("<AttackCollidable>k__BackingField"), active_collider_list, hit_data.weapon_type)
+        hit_data.shell_colliders = {}
 
         push_queue(hit_data_queue, hit_data)
     end
