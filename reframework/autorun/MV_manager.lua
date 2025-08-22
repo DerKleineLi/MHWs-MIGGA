@@ -1122,7 +1122,7 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
                 -- if is subweapon then weapon type already have prefix "Sub"
                 collider_weapon_type = weapon_type
             end
-            if active_part == "Weapon" or active_part == "SubWeapon" then
+            if active_part == "SubWeapon" then
                 if not tostring(weapon_type):find("^Sub") then goto continue end
                 -- if is subweapon then weapon type already have prefix "Sub"
                 collider_weapon_type = weapon_type
