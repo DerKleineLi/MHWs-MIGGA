@@ -367,7 +367,7 @@ re.on_application_entry("UpdateMotionFrame", function()
                 local motion_bank_id = motion.MotionBankID
                 local motion_frame = motion.Frame
                 local layer_id = motion.LayerID
-                local weapon_code = motion_bank_id == 20 and get_wp_type() or 0
+                local weapon_code = motion_bank_id == 20 and get_wp_type() or -1
                 local config_key = string.format("%d_%d_%d_%d", weapon_code, layer_id, motion_bank_id, motion_id)
                 local target_motion_config = get_motion_config(config_key)
 
@@ -599,7 +599,7 @@ re.on_draw_ui(function()
                         changed, UI_vars.is_submotion_to_add = imgui.checkbox("Is Sub Motion", UI_vars.is_submotion_to_add)
                         changed, UI_vars.motion_name_to_add, _, _ = imgui.input_text("Motion Name", UI_vars.motion_name_to_add)
                         if imgui.button("Add") then
-                            local weapon_code = UI_vars.motion_bank_id_to_add == 20 and get_wp_type() or 0
+                            local weapon_code = UI_vars.motion_bank_id_to_add == 20 and get_wp_type() or -1
                             local key = string.format("%d_%d_%d_%d", weapon_code, UI_vars.is_submotion_to_add and 3 or 0, UI_vars.motion_bank_id_to_add, UI_vars.motion_id_to_add)
                             local key_exists = motion_configs[key] ~= nil
                             motion_configs[key] = motion_configs[key] or {}
