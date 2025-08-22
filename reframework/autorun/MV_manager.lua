@@ -1117,11 +1117,18 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
         local num_collidables = get_num_collidables(active_part, active_group_id, active_set_id)
         for k = 0, num_collidables - 1 do
             local collider_weapon_type = active_part
+            if active_part == "Weapon" then
+                if tostring(weapon_type):find("^Sub") then goto continue end
+                -- if is subweapon then weapon type already have prefix "Sub"
+                collider_weapon_type = weapon_type
+            end
             if active_part == "Weapon" or active_part == "SubWeapon" then
+                if not tostring(weapon_type):find("^Sub") then goto continue end
                 -- if is subweapon then weapon type already have prefix "Sub"
                 collider_weapon_type = weapon_type
             end
             local collider = get_collider(collider_weapon_type, active_group_id, active_set_id, k)
+            -- log.debug(string.format("%x", collider:get_address()))
             active_colliders[#active_colliders + 1] = {
                 weapon_type = collider_weapon_type,
                 group = active_group_id,
@@ -1132,6 +1139,7 @@ local function get_colliders(collidable, active_collider_list, weapon_type)
             if collider == collidable then
                 found = true
             end
+            ::continue::
         end
     end
     if not found then

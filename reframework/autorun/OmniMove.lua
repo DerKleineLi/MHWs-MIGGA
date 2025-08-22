@@ -168,6 +168,12 @@ local function get_hunter()
     return hunter_character
 end
 
+local function get_wp_type()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    return hunter:get_WeaponType()
+end
+
 local function get_motion(layer_id) -- credits to lingsamuel
     layer_id = layer_id or 0
     local player_manager = sdk.get_managed_singleton("app.PlayerManager")
@@ -361,7 +367,8 @@ re.on_application_entry("UpdateMotionFrame", function()
                 local motion_bank_id = motion.MotionBankID
                 local motion_frame = motion.Frame
                 local layer_id = motion.LayerID
-                local config_key = string.format("%d_%d_%d", layer_id, motion_bank_id, motion_id)
+                local weapon_code = motion_bank_id == 20 and get_wp_type() or 0
+                local config_key = string.format("%d_%d_%d_%d", weapon_code, layer_id, motion_bank_id, motion_id)
                 local target_motion_config = get_motion_config(config_key)
 
                 local position_changed = false
@@ -546,6 +553,8 @@ re.on_draw_ui(function()
         
         if imgui.tree_node("Current Motion") then
             local motion = get_motion()
+            local weapon_type = get_wp_type()
+            imgui.text("Weapon Type: " .. tostring(weapon_type))
             if motion then
                 local motion_id = motion.MotionID
                 local motion_bank_id = motion.MotionBankID
@@ -590,7 +599,8 @@ re.on_draw_ui(function()
                         changed, UI_vars.is_submotion_to_add = imgui.checkbox("Is Sub Motion", UI_vars.is_submotion_to_add)
                         changed, UI_vars.motion_name_to_add, _, _ = imgui.input_text("Motion Name", UI_vars.motion_name_to_add)
                         if imgui.button("Add") then
-                            local key = string.format("%d_%d_%d", UI_vars.is_submotion_to_add and 3 or 0, UI_vars.motion_bank_id_to_add, UI_vars.motion_id_to_add)
+                            local weapon_code = UI_vars.motion_bank_id_to_add == 20 and get_wp_type() or 0
+                            local key = string.format("%d_%d_%d_%d", weapon_code, UI_vars.is_submotion_to_add and 3 or 0, UI_vars.motion_bank_id_to_add, UI_vars.motion_id_to_add)
                             local key_exists = motion_configs[key] ~= nil
                             motion_configs[key] = motion_configs[key] or {}
                             motion_configs[key].name = UI_vars.motion_name_to_add
