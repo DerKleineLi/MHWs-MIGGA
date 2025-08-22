@@ -2,11 +2,12 @@
     "deleted": false,
     "enabled": true,
     "motion_configs": {
-        "0_20_270": {
+        "10_0_20_270": {
             "name": "IG_00_front",
             "segments": [
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 2,
                     "direction_vector": [
                         0.0,
@@ -21,11 +22,12 @@
                 }
             ]
         },
-        "0_20_271": {
+        "10_0_20_271": {
             "name": "IG_00_left",
             "segments": [
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 2,
                     "direction_vector": [
                         0.0,
@@ -40,11 +42,12 @@
                 }
             ]
         },
-        "0_20_272": {
+        "10_0_20_272": {
             "name": "IG_00_right",
             "segments": [
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 2,
                     "direction_vector": [
                         0.0,
@@ -59,11 +62,12 @@
                 }
             ]
         },
-        "0_20_273": {
+        "10_0_20_273": {
             "name": "IG_00_back",
             "segments": [
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 2,
                     "direction_vector": [
                         0.0,
@@ -78,11 +82,12 @@
                 }
             ]
         },
-        "0_20_275": {
+        "10_0_20_275": {
             "name": "IG_01_left",
             "segments": [
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 2,
                     "direction_vector": [
                         0.0,
@@ -97,11 +102,12 @@
                 }
             ]
         },
-        "0_20_276": {
+        "10_0_20_276": {
             "name": "IG_01_right",
             "segments": [
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 2,
                     "direction_vector": [
                         0.0,
@@ -116,11 +122,12 @@
                 }
             ]
         },
-        "0_20_277": {
+        "10_0_20_277": {
             "name": "IG_01_back",
             "segments": [
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 2,
                     "direction_vector": [
                         0.0,

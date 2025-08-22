@@ -2,11 +2,12 @@
     "deleted": false,
     "enabled": true,
     "motion_configs": {
-        "3_20_276": {
+        "12_3_20_276": {
             "name": "HBG_shotgun",
             "segments": [
                 {
-                    "block_original_move": true,
+                    "block_original_move_xz": true,
+                    "block_original_move_y": false,
                     "direction_type": 2,
                     "direction_vector": [
                         0.0,

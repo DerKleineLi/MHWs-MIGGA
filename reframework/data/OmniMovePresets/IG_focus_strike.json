@@ -2,11 +2,12 @@
     "deleted": false,
     "enabled": true,
     "motion_configs": {
-        "0_20_460": {
+        "10_0_20_460": {
             "name": "IG_gound_focus_strike",
             "segments": [
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 6,
                     "direction_vector": [
                         0.0,
@@ -20,7 +21,8 @@
                     "start_frame": 20
                 },
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 6,
                     "direction_vector": [
                         0.0,
@@ -34,7 +36,8 @@
                     "start_frame": 75
                 },
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 6,
                     "direction_vector": [
                         0.0,
@@ -49,11 +52,12 @@
                 }
             ]
         },
-        "0_20_466": {
+        "10_0_20_466": {
             "name": "IG_air_focus_strike_00",
             "segments": [
                 {
-                    "block_original_move": false,
+                    "block_original_move_xz": false,
+                    "block_original_move_y": false,
                     "direction_type": 5,
                     "direction_vector": [
                         0.0,
