@@ -1,5 +1,6 @@
 -- config
 local config_file = "HH_customize_music.json"
+local preset_dir = "HH_customize_music_presets\\\\"
 
 local function merge_tables(t1, t2)
     if type(t1) ~= "table" or type(t2) ~= "table" then return end
@@ -40,6 +41,40 @@ re.on_config_save(
         json.dump_file(config_file, config)
     end
 )
+
+local function get_stem(path)
+    return path:match("([^/\\]+)%.%w+$")
+end
+
+local preset_configs = {}
+
+local function get_empty_preset_config()
+    local output = {
+        deleted = false,
+        musics = {},
+        tone_colors = {0, 0, 0},
+        HibikiShellType = 0,
+    }
+    for i = 1, 11 do
+        output.musics[i] = null_music()
+    end
+    return output
+end
+
+local function load_preset_configs()
+    preset_configs = {}
+    local preset_files = fs.glob(preset_dir .. ".*\\.json$")
+    for _, file in ipairs(preset_files) do
+        local preset_name = get_stem(file)
+        local preset_config = json.load_file(file)
+        preset_configs[preset_name] = preset_configs[preset_name] or get_empty_preset_config()
+        merge_tables(preset_configs[preset_name], preset_config)
+        if preset_configs[preset_name].deleted then
+            preset_configs[preset_name] = nil
+        end
+    end
+end
+load_preset_configs()
 
 -- helper functions
 local function get_hunter()
@@ -130,7 +165,12 @@ sdk.hook(sdk.find_type_definition("app.HunterCharacter.cHunterExtendPlayer"):get
         apply()
     end
 end, nil)
+
 -- ui
+local ui_table = {
+    selected_preset = nil,
+    new_preset_name = "",
+}
 re.on_draw_ui(function()
     local function enum_combo(name, value, enum_type)
         local valuepp = value + 1
@@ -153,6 +193,63 @@ re.on_draw_ui(function()
         changed, config.enabled = imgui.checkbox("Automatically Apply Configured Music", config.enabled)
         any_changed = any_changed or changed
         imgui.end_group()
+
+        -- Combo for preset selection
+        local preset_names = {}
+        for name, _ in pairs(preset_configs) do
+            table.insert(preset_names, name)
+        end
+        table.sort(preset_names)
+        local selected_preset_idx = 1
+        if not ui_table.selected_preset or not preset_configs[ui_table.selected_preset] then
+            ui_table.selected_preset = preset_names[1]
+        end
+        for i, name in ipairs(preset_names) do
+            if name == ui_table.selected_preset then
+                selected_preset_idx = i
+                break
+            end
+        end
+        changed, selected_preset_idx = imgui.combo("Preset", selected_preset_idx, preset_names)
+        if changed then
+            ui_table.selected_preset = preset_names[selected_preset_idx]
+        end
+
+        imgui.same_line()
+        if imgui.button("Load Preset") and ui_table.selected_preset and preset_configs[ui_table.selected_preset] then
+            config.musics = preset_configs[ui_table.selected_preset].musics
+            config.tone_colors = preset_configs[ui_table.selected_preset].tone_colors
+            config.HibikiShellType = preset_configs[ui_table.selected_preset].HibikiShellType
+            ui_table.new_preset_name = ui_table.selected_preset
+            any_changed = true
+        end
+
+        imgui.same_line()
+        if imgui.button("Delete Preset") and ui_table.selected_preset and preset_configs[ui_table.selected_preset] then
+            local preset_path = preset_dir .. ui_table.selected_preset .. ".json"
+            local preset = preset_configs[ui_table.selected_preset]
+            preset.deleted = true
+            json.dump_file(preset_path, preset)
+            load_preset_configs()
+        end
+
+        -- Save new preset
+        if not ui_table.new_preset_name then ui_table.new_preset_name = "" end
+        changed, ui_table.new_preset_name = imgui.input_text("Save As", ui_table.new_preset_name, 64)
+        imgui.same_line()
+        if imgui.button("Save Preset") and ui_table.new_preset_name ~= "" then
+            local preset_path = preset_dir .. ui_table.new_preset_name .. ".json"
+            local preset = {
+                deleted = false,
+                musics = config.musics,
+                tone_colors = config.tone_colors,
+                HibikiShellType = config.HibikiShellType,
+            }
+            json.dump_file(preset_path, preset)
+            ui_table.selected_preset = ui_table.new_preset_name
+            load_preset_configs()
+        end
+        imgui.separator()
 
         if imgui.tree_node("Musics") then
             for i, music_config in ipairs(config.musics) do
