@@ -41,6 +41,7 @@ local config = {
         air_marking = 0,
         parry_damage = 90,
         parry_all_attacks = false,
+        invincibility_time = 0.25,
     },
     step = {
         ground_offset_start = 0,
@@ -57,6 +58,7 @@ local config = {
         air_marking = 0,
         step_on_vanilla_ground_parry = false,
         step_on_vanilla_air_parry = false,
+        invincibility_time = 0.25,
     },
 }
 
@@ -269,7 +271,9 @@ function(args)
     local attack_value = attack_data:get_field("_Attack")
     local heal_value = attack_data:get_field("_HealValue")
 
-    if contains_token(attack_owner_tag, "Enemy") and attack_value > 0 then
+    -- log.debug("AttackOwner: " .. attack_owner_tag .. ", Attack: " .. tostring(attack_value))
+
+    if contains_token(attack_owner_tag, "Enemy") then
         local force_step = false
         if on_vanilla_parry then
             if config.step.step_on_vanilla_ground_parry and in_motion.ground_offset then
@@ -282,11 +286,17 @@ function(args)
         force_step = force_step or in_window("step")
         if force_step then
             change_action(0, 2, 53) -- step
+            this:startNoHitTimer(config.step.invincibility_time)
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
     end
+
+    if on_mod_parry then
+        this:startNoHitTimer(config.parry.invincibility_time)
+        return sdk.PreHookResult.SKIP_ORIGINAL
+    end
     
-    if on_mod_parry or (in_window("rockstedy") and heal_value <= 0) then return sdk.PreHookResult.SKIP_ORIGINAL end
+    if in_window("rockstedy") and heal_value <= 0 then return sdk.PreHookResult.SKIP_ORIGINAL end
 end, nil)
 
 -- parry
@@ -369,6 +379,7 @@ re.on_draw_ui(function()
             changed, config.parry.helicopter_start, config.parry.helicopter = two_rows("Helicopter", config.parry.helicopter_start, config.parry.helicopter, "Start", "End", 0, motion_max_frames.helicopter)
             changed, config.parry.ground_marking_start, config.parry.ground_marking = two_rows("Ground Marking", config.parry.ground_marking_start, config.parry.ground_marking, "Start", "End", 0, motion_max_frames.ground_marking)
             changed, config.parry.air_marking_start, config.parry.air_marking = two_rows("Air Marking", config.parry.air_marking_start, config.parry.air_marking, "Start", "End", 0, motion_max_frames.air_marking)
+            changed, config.parry.invincibility_time = imgui.drag_float("Invincibility Time", config.parry.invincibility_time, 0.01, 0, 5, "%.2f")
             imgui.tree_pop()
         end
         if imgui.tree_node("Enemy Step") then
@@ -382,6 +393,7 @@ re.on_draw_ui(function()
             changed, config.step.helicopter_start, config.step.helicopter = two_rows("Helicopter", config.step.helicopter_start, config.step.helicopter, "Start", "End", 0, motion_max_frames.helicopter)
             changed, config.step.ground_marking_start, config.step.ground_marking = two_rows("Ground Marking", config.step.ground_marking_start, config.step.ground_marking, "Start", "End", 0, motion_max_frames.ground_marking)
             changed, config.step.air_marking_start, config.step.air_marking = two_rows("Air Marking", config.step.air_marking_start, config.step.air_marking, "Start", "End", 0, motion_max_frames.air_marking)
+            changed, config.step.invincibility_time = imgui.drag_float("Invincibility Time", config.step.invincibility_time, 0.01, 0, 5, "%.2f")
             imgui.tree_pop()
         end
 
