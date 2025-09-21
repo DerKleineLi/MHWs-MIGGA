@@ -15,14 +15,19 @@ end
 
 local saved_config = json.load_file(config_file) or {}
 
-local config = {
-    enabled = true,
-    global_motion_config = {
+local function get_empty_segment_config()
+    return {
         enabled = false,
         start_frame = 0,
-        end_frame = 0,
+        end_frame = 1000,
+        parry_value = 90,
         invisible_time = 0.0,
-    },
+    }
+end
+
+local config = {
+    enabled = true,
+    global_motion_config = get_empty_segment_config(),
     motion_configs = {}
 }
 
@@ -82,14 +87,6 @@ local function load_preset_configs()
 end
 load_preset_configs()
 
-local function get_empty_segment_config()
-    return {
-        enabled = false,
-        start_frame = 0,
-        end_frame = 1000,
-        invisible_time = 0.0,
-    }
-end
 _EVERPARRY_GLOBAL_SEGMENT_CONFIG = get_empty_segment_config()
 
 local function get_motion_config(key)
@@ -143,6 +140,7 @@ local function get_prefab(wp_type)
     local player_manager = sdk.get_managed_singleton("app.PlayerManager")
     local catalog = player_manager:get_Catalog()
     if not catalog then return nil end
+    -- log.debug("catalog: " .. string.format("%x", catalog:get_address()))
     local wp_assets = catalog:getWeaponEquipUseAssets(wp_type)
     if not wp_assets then return nil end
     return wp_assets:get_EpvRef()
@@ -193,7 +191,7 @@ function contains_token(haystack, needle)
 end
 
 -- core
-local effect_wp_type = 10 -- use IG's effect to override, other values won't work
+local EFFECT_WP_TYPE = 10 -- Insect Glaive
 local effect_override_types = {
     [1] = true, -- Sword and Shield
     [2] = true, -- Dual Blades
@@ -206,8 +204,58 @@ local effect_override_types = {
     [13] = true, -- Light Bowgun
 }
 
-local should_restore_effect = false
+-- init prefab cache
+local prefab_cache = nil
+local wp_type_cache = nil
+
+local function init_prefab_cache()
+    -- change wp to IG to load prefab
+    local player_manager = sdk.get_managed_singleton("app.PlayerManager")
+    if not player_manager then return end
+    -- log.debug("PlayerManager: " .. string.format("%x", player_manager:get_address()))
+
+    local hunter_create_info = player_manager:getHunterCreateInfo()
+    if not hunter_create_info then return end
+
+    if wp_type_cache == nil then
+        wp_type_cache = hunter_create_info:get_WpType()
+    end
+    hunter_create_info:set_WpType(EFFECT_WP_TYPE)
+
+    player_manager:call(
+        "startReloadPlayer(System.Int32, app.cHunterCreateInfo, ace.Bitset`1<app.HunterDef.CREATE_HUNTER_OPTION>)", 
+        0, 
+        hunter_create_info, 
+        nil
+    )
+
+    -- store current prefab
+    prefab_cache = get_prefab(EFFECT_WP_TYPE)
+    if not prefab_cache then return end
+    prefab_cache:add_ref_permanent()
+    -- log.debug("Cached prefab: " .. string.format("%x", prefab_cache:get_address()))
+
+    -- change wp back
+    hunter_create_info:set_WpType(wp_type_cache)
+    player_manager:call(
+        "startReloadPlayer(System.Int32, app.cHunterCreateInfo, ace.Bitset`1<app.HunterDef.CREATE_HUNTER_OPTION>)", 
+        0, 
+        hunter_create_info, 
+        nil
+    )
+    -- hunter_create_info_cache:force_release()
+    -- hunter_create_info_cache = nil
+end
+
+re.on_frame(function()
+    if not config.enabled then return end
+    if not prefab_cache then
+        init_prefab_cache()
+    end
+end)
+
 -- parry
+local should_restore_effect = false
 -- app.EnemyCharacter.evHit_AttackPreProcess(app.HitInfo)
 sdk.hook(sdk.find_type_definition("app.EnemyCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"),
 function(args)
@@ -250,7 +298,7 @@ function(args)
                     local attack_param_pl = sdk.create_instance("app.cAttackParamPl", true)
                     hit_info:set_DamageAttackData(attack_param_pl)
                     hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectType", 18)
-                    hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_ParryDamage", 90)
+                    hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_ParryDamage", target_config.parry_value)
                     hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectOverwriteConnectID", -1)
                     get_hunter():startNoHitTimer(target_config.invisible_time)
                     -- log.debug("parry triggered")
@@ -258,8 +306,9 @@ function(args)
                     -- log.debug("effect: " .. string.format("%x", effect:get_address()))
                     local wp_type = get_wp_type()
                     if effect_override_types[wp_type] then
-                        local effect_prefab = get_prefab(effect_wp_type)
-                        effect:requestSetDataContainer(effect_prefab, 0, effect_wp_type)
+                        local effect_prefab = prefab_cache
+                        -- log.debug("effect_prefab: " .. string.format("%x", effect_prefab:get_address()))
+                        effect:requestSetDataContainer(effect_prefab, 0, EFFECT_WP_TYPE)
                         -- effect:update()
                         effect:lateUpdate()
                         should_restore_effect = true
@@ -279,7 +328,6 @@ end, function(retval)
     end
     return retval
 end)
-
 
 -- UI
 local UI_preset_table = {}
@@ -316,6 +364,7 @@ re.on_draw_ui(function()
                 imgui.table_next_column()
                 changed, config.global_motion_config.end_frame = imgui.drag_int("End Frame", config.global_motion_config.end_frame, 1, 0, 1000)
                 imgui.end_table()
+                changed, config.global_motion_config.parry_value = imgui.drag_float("Parry Value", config.global_motion_config.parry_value, 1, 0, 300, "%.0f")
                 changed, config.global_motion_config.invisible_time = imgui.drag_float("Invisible Time", config.global_motion_config.invisible_time, 0.01, 0.0, 5.0, "%.2f")
                 imgui.tree_pop()
             end
@@ -391,6 +440,7 @@ re.on_draw_ui(function()
                                     segment.enabled = segment.enabled or false
                                     segment.start_frame = segment.start_frame or 0
                                     segment.end_frame = segment.end_frame or 0
+                                    segment.parry_value = segment.parry_value or 90
                                     segment.invisible_time = segment.invisible_time or 0.0
 
                                     if imgui.tree_node("Segment " .. tostring(segment_idx)) then
@@ -402,6 +452,7 @@ re.on_draw_ui(function()
                                         imgui.table_next_column()
                                         changed, segment.end_frame = imgui.drag_int("End Frame", segment.end_frame, 1, 0, 1000)
                                         imgui.end_table()
+                                        changed, segment.parry_value = imgui.drag_float("Parry Value", segment.parry_value, 1, 0, 300, "%.0f")
                                         changed, segment.invisible_time = imgui.drag_float("Invisible Time", segment.invisible_time, 0.01, 0.0, 5.0, "%.2f")
                                         
                                         if #motion_config.segments > 1 then
