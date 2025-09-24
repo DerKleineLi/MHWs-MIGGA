@@ -205,7 +205,7 @@ local effect_override_types = {
 }
 
 -- init prefab cache
-local prefab_cache = nil
+_EVERPARRY_GLOBAL_PREFAB_CACHE = nil
 local wp_type_cache = nil
 
 local function init_prefab_cache()
@@ -217,39 +217,56 @@ local function init_prefab_cache()
     local hunter_create_info = player_manager:getHunterCreateInfo()
     if not hunter_create_info then return end
 
+    local current_wp_type = get_wp_type()
+    if not current_wp_type or current_wp_type == -1 then return end
+
     if wp_type_cache == nil then
         wp_type_cache = hunter_create_info:get_WpType()
     end
-    hunter_create_info:set_WpType(EFFECT_WP_TYPE)
+    
+    -- log.info("[EverParry] Current WP type: " .. tostring(current_wp_type))
+    if current_wp_type ~= EFFECT_WP_TYPE then
+        -- log.info("[EverParry] setting WP type from " .. tostring(wp_type_cache) .. " to " .. tostring(EFFECT_WP_TYPE) .. " to cache parry effect prefab")
+        hunter_create_info:set_WpType(EFFECT_WP_TYPE)
+        player_manager:call(
+            "startReloadPlayer(System.Int32, app.cHunterCreateInfo, ace.Bitset`1<app.HunterDef.CREATE_HUNTER_OPTION>)", 
+            0, 
+            hunter_create_info, 
+            nil
+        )
+        -- log.info("[EverParry] Wp set")
+        return
+    end
 
-    player_manager:call(
-        "startReloadPlayer(System.Int32, app.cHunterCreateInfo, ace.Bitset`1<app.HunterDef.CREATE_HUNTER_OPTION>)", 
-        0, 
-        hunter_create_info, 
-        nil
-    )
-
+    -- log.info("[EverParry] Trying to get prefab...")
     -- store current prefab
-    prefab_cache = get_prefab(EFFECT_WP_TYPE)
-    if not prefab_cache then return end
-    prefab_cache:add_ref_permanent()
-    -- log.debug("Cached prefab: " .. string.format("%x", prefab_cache:get_address()))
-
-    -- change wp back
-    hunter_create_info:set_WpType(wp_type_cache)
-    player_manager:call(
-        "startReloadPlayer(System.Int32, app.cHunterCreateInfo, ace.Bitset`1<app.HunterDef.CREATE_HUNTER_OPTION>)", 
-        0, 
-        hunter_create_info, 
-        nil
-    )
-    -- hunter_create_info_cache:force_release()
-    -- hunter_create_info_cache = nil
+    _EVERPARRY_GLOBAL_PREFAB_CACHE = get_prefab(EFFECT_WP_TYPE)
+    if not _EVERPARRY_GLOBAL_PREFAB_CACHE then
+        -- log.info("[EverParry] failed to get prefab, will try again next frame")
+        return 
+    end
+    -- log.info("[EverParry] found prefab, adding permanent ref...")
+    _EVERPARRY_GLOBAL_PREFAB_CACHE:add_ref_permanent()
+    -- log.info("[EverParry] permanent ref added.")
+    -- log.debug("Cached prefab: " .. string.format("%x", _EVERPARRY_GLOBAL_PREFAB_CACHE:get_address()))
+    
+    if wp_type_cache ~= current_wp_type then
+        -- log.info("[EverParry] added permanent ref to prefab, setting WP type back to " .. tostring(wp_type_cache))
+        -- change wp back
+        hunter_create_info:set_WpType(wp_type_cache)
+        player_manager:call(
+            "startReloadPlayer(System.Int32, app.cHunterCreateInfo, ace.Bitset`1<app.HunterDef.CREATE_HUNTER_OPTION>)", 
+            0, 
+            hunter_create_info, 
+            nil
+        )
+        -- log.info("[EverParry] Wp set back, prefab cache complete.")
+    end
 end
 
 re.on_frame(function()
     if not config.enabled then return end
-    if not prefab_cache then
+    if not _EVERPARRY_GLOBAL_PREFAB_CACHE then
         init_prefab_cache()
     end
 end)
@@ -306,7 +323,7 @@ function(args)
                     -- log.debug("effect: " .. string.format("%x", effect:get_address()))
                     local wp_type = get_wp_type()
                     if effect_override_types[wp_type] then
-                        local effect_prefab = prefab_cache
+                        local effect_prefab = _EVERPARRY_GLOBAL_PREFAB_CACHE
                         -- log.debug("effect_prefab: " .. string.format("%x", effect_prefab:get_address()))
                         effect:requestSetDataContainer(effect_prefab, 0, EFFECT_WP_TYPE)
                         -- effect:update()
@@ -329,6 +346,7 @@ end, function(retval)
     return retval
 end)
 
+
 -- UI
 local UI_preset_table = {}
 local function update_UI_preset_table()
@@ -350,7 +368,6 @@ re.on_draw_ui(function()
     local changed, any_changed = false, false
     
     if imgui.tree_node("EverParry") then
-
         if imgui.tree_node("Global Configs") then
             changed, config.enabled = imgui.checkbox("Enabled", config.enabled)
 
