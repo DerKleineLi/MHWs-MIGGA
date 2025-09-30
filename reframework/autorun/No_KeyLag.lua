@@ -441,7 +441,6 @@ sdk.hook(sdk.find_type_definition("app.cPlayerCommandController"):get_method("sy
     cPlayerCommandController = sdk.to_managed_object(args[2])
 end, function(retval)
     if cPlayerCommandController then
-        log.debug("cPlayerCommandController assigned.")
         current_weapon_idx = get_wp_type()
         overwrite_keylag()
     else
