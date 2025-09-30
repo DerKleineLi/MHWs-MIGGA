@@ -349,6 +349,22 @@ if saved_config_raw then
     merge_tables(config, saved_config_filtered)
 end
 
+-- --- Helper Functions ---
+local function get_hunter()
+    local player_manager = sdk.get_managed_singleton("app.PlayerManager")
+    if not player_manager then return nil end
+    local player_info = player_manager:getMasterPlayer()
+    if not player_info then return nil end
+    local hunter_character = player_info:get_Character()
+    return hunter_character
+end
+
+local function get_wp_type()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    return hunter:get_WeaponType()
+end
+
 -- --- Runtime Variables ---
 local on_weapon_change = false
 local current_weapon_idx = -1
@@ -425,30 +441,8 @@ sdk.hook(sdk.find_type_definition("app.cPlayerCommandController"):get_method("sy
     cPlayerCommandController = sdk.to_managed_object(args[2])
 end, function(retval)
     if cPlayerCommandController then
-        if current_weapon_idx == -1 then
-            local player_manager = sdk.get_managed_singleton("app.PlayerManager")
-            if player_manager then
-                 local player = player_manager:get_MainPlayer()
-                 if player then
-                     local get_weapon_type_method = sdk.find_method(player, "get_WeaponType")
-                     if get_weapon_type_method then
-                         local success_get_wt, wt_result = pcall(function() return player:get_WeaponType() end)
-                         if success_get_wt and weapon_ids[wt_result] then
-                             current_weapon_idx = wt_result
-                             -- log.debug(get_text("initial_weapon_log", current_weapon_idx, get_text(weapon_ids[current_weapon_idx])))
-                         else
-                             if not success_get_wt then log.error(get_text("warn_get_weapon_type_fail", tostring(wt_result)))
-                             else log.warn(get_text("warn_invalid_initial_weapon", tostring(wt_result))) end
-                             current_weapon_idx = -1
-                         end
-                     else
-                        log.warn(get_text("warn_no_get_weapon_type"))
-                        current_weapon_idx = -1
-                     end
-                 else log.warn(get_text("warn_no_player")) end
-            else log.warn(get_text("warn_no_player_manager")) end
-        end
-        -- Apply settings after controller is confirmed and initial weapon potentially detected
+        log.debug("cPlayerCommandController assigned.")
+        current_weapon_idx = get_wp_type()
         overwrite_keylag()
     else
         log.error(get_text("error_controller_nil"))
