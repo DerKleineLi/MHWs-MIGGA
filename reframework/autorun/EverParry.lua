@@ -206,70 +206,29 @@ local effect_override_types = {
 
 -- init prefab cache
 _EVERPARRY_GLOBAL_PREFAB_CACHE = nil
-local wp_type_cache = nil
+local cache_task_submitted = false
 
-local function init_prefab_cache()
-    -- change wp to IG to load prefab
-    local player_manager = sdk.get_managed_singleton("app.PlayerManager")
-    if not player_manager then return end
-    -- log.debug("PlayerManager: " .. string.format("%x", player_manager:get_address()))
-
-    local hunter_create_info = player_manager:getHunterCreateInfo()
-    if not hunter_create_info then return end
-
-    local current_wp_type = get_wp_type()
-    if not current_wp_type or current_wp_type == -1 then return end
-
-    if wp_type_cache == nil then
-        wp_type_cache = hunter_create_info:get_WpType()
-    end
-    
-    -- log.info("[EverParry] Current WP type: " .. tostring(current_wp_type))
-    if current_wp_type ~= EFFECT_WP_TYPE then
-        -- log.info("[EverParry] setting WP type from " .. tostring(wp_type_cache) .. " to " .. tostring(EFFECT_WP_TYPE) .. " to cache parry effect prefab")
-        hunter_create_info:set_WpType(EFFECT_WP_TYPE)
-        player_manager:call(
-            "startReloadPlayer(System.Int32, app.cHunterCreateInfo, ace.Bitset`1<app.HunterDef.CREATE_HUNTER_OPTION>)", 
-            0, 
-            hunter_create_info, 
-            nil
-        )
-        -- log.info("[EverParry] Wp set")
-        return
-    end
-
-    -- log.info("[EverParry] Trying to get prefab...")
-    -- store current prefab
+local function cache_func()
     _EVERPARRY_GLOBAL_PREFAB_CACHE = get_prefab(EFFECT_WP_TYPE)
-    if not _EVERPARRY_GLOBAL_PREFAB_CACHE then
-        -- log.info("[EverParry] failed to get prefab, will try again next frame")
-        return 
+    if _EVERPARRY_GLOBAL_PREFAB_CACHE then
+        _EVERPARRY_GLOBAL_PREFAB_CACHE:add_ref_permanent()
     end
-    -- log.info("[EverParry] found prefab, adding permanent ref...")
-    _EVERPARRY_GLOBAL_PREFAB_CACHE:add_ref_permanent()
-    -- log.info("[EverParry] permanent ref added.")
-    -- log.debug("Cached prefab: " .. string.format("%x", _EVERPARRY_GLOBAL_PREFAB_CACHE:get_address()))
-    
-    if wp_type_cache ~= current_wp_type then
-        -- log.info("[EverParry] added permanent ref to prefab, setting WP type back to " .. tostring(wp_type_cache))
-        -- change wp back
-        hunter_create_info:set_WpType(wp_type_cache)
-        player_manager:call(
-            "startReloadPlayer(System.Int32, app.cHunterCreateInfo, ace.Bitset`1<app.HunterDef.CREATE_HUNTER_OPTION>)", 
-            0, 
-            hunter_create_info, 
-            nil
-        )
-        -- log.info("[EverParry] Wp set back, prefab cache complete.")
-    end
+    return _EVERPARRY_GLOBAL_PREFAB_CACHE ~= nil
 end
 
-re.on_frame(function()
-    if not config.enabled then return end
-    if not _EVERPARRY_GLOBAL_PREFAB_CACHE then
-        init_prefab_cache()
-    end
-end)
+-- wait until _WEAPON_CACHING is loaded
+if _WEAPON_CACHING then
+    _WEAPON_CACHING.register_cache_task(EFFECT_WP_TYPE, cache_func)
+    cache_task_submitted = true
+else
+    re.on_frame(function()
+        if not cache_task_submitted and _WEAPON_CACHING then
+            _WEAPON_CACHING.register_cache_task(EFFECT_WP_TYPE, cache_func)
+            cache_task_submitted = true
+        end
+    end)
+end
+
 
 -- parry
 local should_restore_effect = false
