@@ -191,7 +191,7 @@ function contains_token(haystack, needle)
 end
 
 -- core
-local EFFECT_WP_TYPE = 10 -- Insect Glaive
+local EFFECT_WP_TYPE = 0 -- Great Sword
 local effect_override_types = {
     [1] = true, -- Sword and Shield
     [2] = true, -- Dual Blades
