@@ -15,6 +15,8 @@ local saved_config = json.load_file(config_file_path) or {}
 local config = {
     enabled = true,
     check_for_skill = true,
+    motion_value = 20.0,
+    attribute_value = 40.0,
 }
 
 merge_tables(config, saved_config)
@@ -140,6 +142,7 @@ end
 -- core
 local SOUND_DATA_ID = 1999283982
 local TARGET_WP_TYPE = 0 -- GS
+local IG_WP_TYPE = 10 -- IG
 local TORNADO_SLASH_MOTION_ID = 260 
 local TORNADO_SLASH_MOTION_BANK_ID = 20
 local DARK_ARTS_SKILL_ID = 241
@@ -268,6 +271,71 @@ re.on_application_entry("UpdateMotionFrame", function()
     last_frame = motion.Frame
 end)
 
+-- change motion value
+local function get_key(hit_data)
+    return string.format("%s_%s_%d", tostring(hit_data.weapon_type), hit_data.attack_owner_name, hit_data.attack_index)
+end
+local TARGET_KEY = "-1_Wp00Shell_1"
+
+local attack_data_cache = nil
+sdk.hook(sdk.find_type_definition("app.mcShellColHit"):get_method("evAttackPreProcess(app.HitInfo)"),
+function(args)
+    attack_data_cache = nil
+    local current_wp_type = get_wp_type()
+    if current_wp_type ~= IG_WP_TYPE then return end
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    local owner = this:get_Owner()
+    if not owner then return end
+
+    -- get root owner, credits to kmyx
+    local shell_base = owner:call("getComponent(System.Type)", sdk.typeof("ace.ShellBase"))
+    -- if not shell_base then return end
+    ---@cast shell_base ace.ShellBase
+    local shell_owner = shell_base:get_ShellOwner()
+    local shell_transform = shell_owner:get_Transform()
+
+    for _ = 1, 100 do
+        local parent = shell_transform:get_Parent()
+        if parent then
+            shell_transform = parent
+        else
+            break
+        end
+    end
+
+    local actual_owner = shell_transform:get_GameObject()
+    if not actual_owner then return end
+    if actual_owner:get_Name() ~= "MasterPlayer" then return end
+
+    local hit_info = sdk.to_managed_object(args[3])
+    if not hit_info then return end
+    local attack_data = hit_info:get_field("<AttackData>k__BackingField")
+    if not attack_data then return end
+    
+    local weapon_type = attack_data._WeaponType
+
+    local hit_data = {
+        weapon_type = weapon_type,
+        attack_index = hit_info:get_field("<AttackIndex>k__BackingField")._Index,
+        attack_owner_name = hit_info:get_field("<AttackOwner>k__BackingField"):get_Name(),
+        attack_owner_tag = hit_info:get_field("<AttackOwner>k__BackingField"):get_Tag(),
+        attack_name = attack_data:get_field("_UserData"):get_Name(),
+    }
+    local key = get_key(hit_data)
+    if key ~= TARGET_KEY then return end
+    attack_data_cache = attack_data
+
+end, function(retval)
+    -- change motion value in post hook to overwrite MV_manager's possible changes
+    if attack_data_cache then
+        attack_data_cache:set_field("_Attack", config.motion_value)
+        attack_data_cache:set_field("_AttrValue", config.attribute_value)
+        attack_data_cache = nil
+    end
+    return retval
+end)
+
 -- UI
 re.on_draw_ui(function()
     local changed, any_changed = false, false
@@ -275,6 +343,8 @@ re.on_draw_ui(function()
     if imgui.tree_node("Insect Glaive Dark Arts") then
         changed, config.enabled = imgui.checkbox("Enabled", config.enabled)
         changed, config.check_for_skill = imgui.checkbox("Check for Dark Arts Skill", config.check_for_skill)
+        changed, config.motion_value = imgui.drag_float("Motion Value, defaults to 20", config.motion_value, 0.01, 0.0, 1000.0, "%.2f")
+        changed, config.attribute_value = imgui.drag_float("Dragon Attribute Value, defaults to 40", config.attribute_value, 0.01, 0.0, 1000.0, "%.2f")
         imgui.tree_pop()
     end
 end)
