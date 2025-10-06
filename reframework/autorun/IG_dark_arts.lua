@@ -75,7 +75,7 @@ local function get_hunter_transform()
     output.rotation = hunter_transform:get_Rotation()
     output.scale = hunter_transform:get_Scale()
     output.forward = hunter_transform:get_AxisZ()
-    output.right = hunter_transform:get_AxisX()
+    output.right = hunter_transform:get_AxisX() * -1
     output.up = hunter_transform:get_AxisY()
     return output
 end
