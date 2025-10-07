@@ -41,6 +41,16 @@ local function get_wp_type()
     return hunter:get_WeaponType()
 end
 
+local function get_sub_wp_type()
+    local hunter = get_hunter()
+    if not hunter then return nil end
+    return hunter:get_ReserveWeaponType()
+end
+
+local function get_wp_data(type)
+  return sdk.find_type_definition("app.WeaponUtil"):get_method("getWeaponData(System.Int32, app.WeaponDef.TYPE)"):call(nil, 0, type)
+end
+
 -- core
 local MAX_WP_TYPE = 13
 
@@ -103,9 +113,15 @@ local function init_wp_cache()
     local wp_type = get_wp_type()
     if not wp_type or wp_type == -1 then return end
 
+    local wp_data = get_wp_data(target_wp_type)
+    if not wp_data then return end
+
     if task_state == TASK_STATE.CHANGING then
         if wp_type ~= current_caching_type then
             hunter_create_info:set_WpType(current_caching_type)
+            hunter_create_info:set_WpID(wp_data:get_Index())
+            hunter_create_info:set_OuterWpID(-1)
+            hunter_create_info:set_WpModelID(wp_data:get_ModelId())
             player_manager:call(
                 "startReloadPlayer(System.Int32, app.cHunterCreateInfo, ace.Bitset`1<app.HunterDef.CREATE_HUNTER_OPTION>)",
                 0,
@@ -136,8 +152,8 @@ local function init_wp_cache()
         else
             attempt_counter = attempt_counter + 1
             if attempt_counter >= config.cache_function_attempts then
-                log.warn("Weapon caching: Some funcs failed for weapon type " .. tostring(task.target_wp_type))
-                task.cache_funcs = {}  -- drop the remaining failed tasks
+                log.warn("Weapon caching: Some funcs failed for weapon type " .. tostring(current_caching_type))
+                task_lists[current_caching_type] = {}  -- drop the remaining failed tasks
                 after_caching()
             end
         end
