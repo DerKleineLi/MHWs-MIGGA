@@ -15,13 +15,25 @@ end
 
 local saved_config = json.load_file(config_file) or {}
 
+local effect_types_id2str = {"parry", "invincible", "mv_manager"}
+local effect_types_str2id = {}
+for id, str in ipairs(effect_types_id2str) do
+    effect_types_str2id[str] = id
+end
+
 local function get_empty_segment_config()
+    mv_manager_properties = nil
+    if _MV_MANAGER then
+        mv_manager_properties = _MV_MANAGER.get_empty_property_config()
+    end
     return {
         enabled = false,
+        effect_type = "parry", -- parry, invincible
         start_frame = 0,
         end_frame = 1000,
         parry_value = 90,
         invisible_time = 0.0,
+        mv_manager_properties = mv_manager_properties,
     }
 end
 
@@ -232,6 +244,7 @@ end
 
 -- parry
 local should_restore_effect = false
+local should_skip_attack = false
 -- app.EnemyCharacter.evHit_AttackPreProcess(app.HitInfo)
 sdk.hook(sdk.find_type_definition("app.EnemyCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"),
 function(args)
@@ -250,12 +263,9 @@ function(args)
     local attack_data = hit_info:get_field("<AttackData>k__BackingField")
     local attack_value = attack_data:get_field("_Attack")
     is_parry_able = is_parry_able and attack_value > 0
-    
-    if not is_parry_able then return end
 
     local collision_layer = hit_info:get_field("<CollisionLayer>k__BackingField")
     on_vanilla_parry = collision_layer == 18
-    if on_vanilla_parry then return end
 
     local main_motion = get_motion()
     local sub_motion = get_sub_motion()
@@ -270,26 +280,39 @@ function(args)
             local target_motion_config = get_motion_config(config_key)
             for _, target_config in ipairs(target_motion_config.segments) do
                 if target_config.enabled and motion_frame >= target_config.start_frame and motion_frame <= target_config.end_frame then
-                    hit_info:set_field("<CollisionLayer>k__BackingField", 18) -- PARRY
-                    local attack_param_pl = sdk.create_instance("app.cAttackParamPl", true)
-                    hit_info:set_DamageAttackData(attack_param_pl)
-                    hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectType", 18)
-                    hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_ParryDamage", target_config.parry_value)
-                    hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectOverwriteConnectID", -1)
-                    get_hunter():startNoHitTimer(target_config.invisible_time)
-                    -- log.debug("parry triggered")
-                    local effect = get_effect()
-                    -- log.debug("effect: " .. string.format("%x", effect:get_address()))
-                    local wp_type = get_wp_type()
-                    if effect_override_types[wp_type] then
-                        local effect_prefab = _EVERPARRY_GLOBAL_PREFAB_CACHE
-                        -- log.debug("effect_prefab: " .. string.format("%x", effect_prefab:get_address()))
-                        effect:requestSetDataContainer(effect_prefab, 0, EFFECT_WP_TYPE)
-                        -- effect:update()
-                        effect:lateUpdate()
-                        should_restore_effect = true
+                    if target_config.effect_type == "parry" then
+                        if not is_parry_able then return end
+                        if on_vanilla_parry then return end
+
+                        hit_info:set_field("<CollisionLayer>k__BackingField", 18) -- PARRY
+                        local attack_param_pl = sdk.create_instance("app.cAttackParamPl", true)
+                        hit_info:set_DamageAttackData(attack_param_pl)
+                        hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectType", 18)
+                        hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_ParryDamage", target_config.parry_value)
+                        hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectOverwriteConnectID", -1)
+                        get_hunter():startNoHitTimer(target_config.invisible_time)
+                        -- log.debug("parry triggered")
+                        local effect = get_effect()
+                        -- log.debug("effect: " .. string.format("%x", effect:get_address()))
+                        local wp_type = get_wp_type()
+                        if effect_override_types[wp_type] then
+                            local effect_prefab = _EVERPARRY_GLOBAL_PREFAB_CACHE
+                            -- log.debug("effect_prefab: " .. string.format("%x", effect_prefab:get_address()))
+                            effect:requestSetDataContainer(effect_prefab, 0, EFFECT_WP_TYPE)
+                            -- effect:update()
+                            effect:lateUpdate()
+                            should_restore_effect = true
+                        end
+                        return
+                    elseif target_config.effect_type == "invincible" then
+                        get_hunter():startNoHitTimer(target_config.invisible_time)
+                        should_skip_attack = true
+                        return
+                    elseif target_config.effect_type == "mv_manager" and _MV_MANAGER then
+                        get_hunter():startNoHitTimer(target_config.invisible_time)
+                        _MV_MANAGER.set_properties(attack_data, target_config.mv_manager_properties)
+                        return
                     end
-                    return
                 end
             end
         end
@@ -302,11 +325,20 @@ end, function(retval)
         effect:requestSetDataContainer(current_prefab, 0, wp_type)
         should_restore_effect = false
     end
+    if should_skip_attack then
+        should_skip_attack = false
+        return sdk.to_ptr(2) -- SKIP
+    end
     return retval
 end)
 
 
 -- UI
+local function ui_combo(value, label, id2str, str2id)
+    local changed, new_id = imgui.combo(label, str2id[value], id2str)
+    return changed, id2str[new_id]
+end
+
 local UI_preset_table = {}
 local function update_UI_preset_table()
     for preset_name, preset_config in pairs(preset_configs) do
@@ -332,7 +364,8 @@ re.on_draw_ui(function()
 
             if imgui.tree_node("Global Motion Configs") then
                 changed, config.global_motion_config.enabled = imgui.checkbox("Enabled", config.global_motion_config.enabled)
-                imgui.text("Set the start and end frames of the motion to enable EverParry.")
+                changed, config.global_motion_config.effect_type = ui_combo(config.global_motion_config.effect_type, "Effect Type", effect_types_id2str, effect_types_str2id)
+                imgui.text("Set the start and end frames of the motion to enable the effect.")
                 imgui.begin_table("Frames", 2)
                 imgui.table_next_row()
                 imgui.table_next_column()
@@ -342,6 +375,15 @@ re.on_draw_ui(function()
                 imgui.end_table()
                 changed, config.global_motion_config.parry_value = imgui.drag_float("Parry Value", config.global_motion_config.parry_value, 1, 0, 300, "%.0f")
                 changed, config.global_motion_config.invisible_time = imgui.drag_float("Invisible Time", config.global_motion_config.invisible_time, 0.01, 0.0, 5.0, "%.2f")
+                if _MV_MANAGER then
+                    if config.global_motion_config.mv_manager_properties == nil then
+                        config.global_motion_config.mv_manager_properties = _MV_MANAGER.get_empty_property_config()
+                    end
+                    if imgui.tree_node("MV Manager Properties") then
+                        _MV_MANAGER.ui_properties(config.global_motion_config.mv_manager_properties)
+                        imgui.tree_pop()
+                    end
+                end
                 imgui.tree_pop()
             end
             
@@ -421,6 +463,7 @@ re.on_draw_ui(function()
 
                                     if imgui.tree_node("Segment " .. tostring(segment_idx)) then
                                         changed, segment.enabled = imgui.checkbox("Enabled", segment.enabled)
+                                        changed, segment.effect_type = ui_combo(segment.effect_type, "Effect Type", effect_types_id2str, effect_types_str2id)
                                         imgui.begin_table("Frames", 2)
                                         imgui.table_next_row()
                                         imgui.table_next_column()
@@ -430,6 +473,15 @@ re.on_draw_ui(function()
                                         imgui.end_table()
                                         changed, segment.parry_value = imgui.drag_float("Parry Value", segment.parry_value, 1, 0, 300, "%.0f")
                                         changed, segment.invisible_time = imgui.drag_float("Invisible Time", segment.invisible_time, 0.01, 0.0, 5.0, "%.2f")
+                                        if _MV_MANAGER then
+                                            if segment.mv_manager_properties == nil then
+                                                segment.mv_manager_properties = _MV_MANAGER.get_empty_property_config()
+                                            end
+                                            if imgui.tree_node("MV Manager Properties") then
+                                                _MV_MANAGER.ui_properties(segment.mv_manager_properties)
+                                                imgui.tree_pop()
+                                            end
+                                        end
                                         
                                         if #motion_config.segments > 1 then
                                             if imgui.button("Remove Segment") then
