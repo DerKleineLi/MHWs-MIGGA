@@ -1552,7 +1552,8 @@ function(args)
     for name, func in pairs(third_party_property_getter) do
         local properties = func(this, hit_info)
         if properties then
-            motion_config = properties
+            motion_config.enabled = true
+            motion_config.properties = properties
             break
         end
     end
@@ -1644,7 +1645,8 @@ function(args)
     for name, func in pairs(third_party_property_getter) do
         local properties = func(this, hit_info)
         if properties then
-            motion_config = properties
+            motion_config.enabled = true
+            motion_config.properties = properties
             break
         end
     end
@@ -1704,7 +1706,8 @@ function(args)
     for name, func in pairs(third_party_property_getter) do
         local properties = func(this, hit_info)
         if properties then
-            motion_config = properties
+            motion_config.enabled = true
+            motion_config.properties = properties
             break
         end
     end

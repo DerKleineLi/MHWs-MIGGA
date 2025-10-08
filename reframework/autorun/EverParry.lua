@@ -281,8 +281,8 @@ function(args)
             for _, target_config in ipairs(target_motion_config.segments) do
                 if target_config.enabled and motion_frame >= target_config.start_frame and motion_frame <= target_config.end_frame then
                     if target_config.effect_type == "parry" then
-                        if not is_parry_able then return end
-                        if on_vanilla_parry then return end
+                        if not is_parry_able then goto continue end
+                        if on_vanilla_parry then goto continue end
 
                         hit_info:set_field("<CollisionLayer>k__BackingField", 18) -- PARRY
                         local attack_param_pl = sdk.create_instance("app.cAttackParamPl", true)
@@ -303,17 +303,15 @@ function(args)
                             effect:lateUpdate()
                             should_restore_effect = true
                         end
-                        return
                     elseif target_config.effect_type == "invincible" then
                         get_hunter():startNoHitTimer(target_config.invisible_time)
                         should_skip_attack = true
-                        return
                     elseif target_config.effect_type == "mv_manager" and _MV_MANAGER then
                         get_hunter():startNoHitTimer(target_config.invisible_time)
                         _MV_MANAGER.set_properties(attack_data, target_config.mv_manager_properties)
-                        return
                     end
                 end
+                ::continue::
             end
         end
     end
