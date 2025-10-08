@@ -597,7 +597,7 @@ local function merge_tables(t1, t2)
     end
 end
 
-local function get_empty_motion_config()
+local function get_empty_property_config()
     local properties = {}
     for i = 1, #lookup_table do
         local lookup = lookup_table[i]
@@ -607,6 +607,7 @@ local function get_empty_motion_config()
         }
         if value_type == "float" then
             property_config.value = 0.0
+            property_config.is_multiply = false
         elseif value_type == "bool" then
             property_config.value = false
         elseif value_type == "int" then
@@ -620,7 +621,11 @@ local function get_empty_motion_config()
         end
         properties[lookup.name] = property_config
     end
+    return properties
+end
 
+local function get_empty_motion_config()
+    local properties = get_empty_property_config()
     return {
         enabled = false,
         name = "Unnamed",
@@ -715,11 +720,12 @@ local function merge_motion_config_properties(target, source)
             target[name] = target[name] or {}
             target[name].enabled = source[name].enabled
             target[name].value = source[name].value
+            if source[name].is_multiply ~= nil then
+                target[name].is_multiply = source[name].is_multiply
+            end
         end
     end
 end
-
--- _MVMANAGER_GLOBAL_MOTION_CONFIG = get_empty_motion_config()
 
 local function get_motion_config(key)
     local motion_config = get_empty_motion_config()
@@ -979,7 +985,13 @@ local function set_properties(attack_data, properties)
     for i = 1, #lookup_table do
         local lookup = lookup_table[i]
         if properties[lookup.name] and properties[lookup.name].enabled then
+            local current_value = attack_data:get_field(lookup.varname)
+            if current_value == nil then goto continue end
+            local is_multiply = properties[lookup.name].is_multiply
             local value = properties[lookup.name].value
+            if is_multiply then
+                value = current_value * value
+            end
             if lookup.type == "nullable" then
                 if value then
                     goto continue
@@ -1044,6 +1056,9 @@ local function ui_properties(properties)
         imgui.same_line()
         local value_type = lookup.type
         if value_type == "float" then
+            local label = properties[lookup.name].is_multiply and " x " or " = "
+            changed, properties[lookup.name].is_multiply = imgui.checkbox(label .. "## is_multiply" .. lookup.name, properties[lookup.name].is_multiply)
+            imgui.same_line()
             changed, properties[lookup.name].value = imgui.drag_float("## value" .. lookup.name, properties[lookup.name].value, 0.01, lookup.min, lookup.max, "%.2f")
         elseif value_type == "bool" then
             changed, properties[lookup.name].value = imgui.checkbox("## value" .. lookup.name, properties[lookup.name].value)
@@ -1495,6 +1510,16 @@ re.on_frame(
     end
 )
 
+-- third party custom config getter
+local third_party_property_getter = {}
+function register_third_party_property_getter(name, func)
+    if type(name) ~= "string" or type(func) ~= "function" then
+        log.error("[MVManager] Invalid arguments to register_third_party_property_getter")
+        return
+    end
+    third_party_property_getter[name] = func
+end
+
 -----------------------------
 -- on hit
 -----------------------------
@@ -1524,6 +1549,13 @@ function(args)
     hit_data.key = get_key(hit_data)
 
     local motion_config = get_motion_config(hit_data.key)
+    for name, func in pairs(third_party_property_getter) do
+        local properties = func(this, hit_info)
+        if properties then
+            motion_config = properties
+            break
+        end
+    end
 
     if reframework:is_drawing_ui() then
         hit_data.name = motion_config.name
@@ -1609,6 +1641,13 @@ function(args)
     hit_data.key = get_key(hit_data)
 
     local motion_config = get_motion_config(hit_data.key)
+    for name, func in pairs(third_party_property_getter) do
+        local properties = func(this, hit_info)
+        if properties then
+            motion_config = properties
+            break
+        end
+    end
 
     if reframework:is_drawing_ui() then
         hit_data.name = motion_config.name
@@ -1662,6 +1701,13 @@ function(args)
     hit_data.key = get_key(hit_data)
 
     local motion_config = get_motion_config(hit_data.key)
+    for name, func in pairs(third_party_property_getter) do
+        local properties = func(this, hit_info)
+        if properties then
+            motion_config = properties
+            break
+        end
+    end
 
     if reframework:is_drawing_ui() then
         hit_data.name = motion_config.name
@@ -2123,3 +2169,11 @@ re.on_draw_ui(function()
         imgui.tree_pop()
     end
 end)
+
+-- expose API
+_MV_MANAGER = {}
+_MV_MANAGER.get_empty_property_config = get_empty_property_config
+_MV_MANAGER.ui_properties = ui_properties
+_MV_MANAGER.register_third_party_property_getter = register_third_party_property_getter
+-- args: name, func(this, hit_info) -> motion_config or nil
+_MV_MANAGER.set_properties = set_properties
