@@ -242,6 +242,10 @@ local function ypr_degrees2quat(yaw, pitch, roll)
     -- return quat_multiply(q_roll, quat_multiply(q_pitch, q_yaw))
 end
 
+local function ax2quat(x, y, z)
+    return sdk.find_type_definition("via.MathEx"):get_method("makeQuatAxis3(via.vec3, via.vec3, via.vec3)"):call(nil, x, y, z)
+end
+
 local function rotate_quaternion_by_ypr_degrees(q, yaw, pitch, roll)
     local rot = ypr_degrees2quat(yaw, pitch, roll)
     return quat_multiply(rot, q)
@@ -364,9 +368,48 @@ end
 local function get_effect()
     local player_manager = sdk.get_managed_singleton("app.PlayerManager")
     local player_info = player_manager:getMasterPlayer()
-    if not player_info then return 0 end
+    if not player_info then return nil end
     local player_object = player_info:get_Object()
     return player_object:getComponent(sdk.typeof("via.effect.script.ObjectEffectManager2"))
+end
+
+local function get_camera_lookat_position()
+    local camera_manager = sdk.get_managed_singleton("app.CameraManager")
+    if not camera_manager then return nil end
+    local master_camera = camera_manager._MasterPlCamera
+    if not master_camera then return nil end
+    local camera = master_camera:get_Camera()
+    if not camera then return nil end
+    local eye_pos = camera:get_EyePos()
+    local forward = camera:get_Forward()
+
+    local attach_pos = master_camera:get_AttachPos()
+    local eye_to_attach = attach_pos - eye_pos
+    local forward_dot = eye_to_attach:dot(forward)
+    local min_distance = forward_dot > 0 and forward_dot or 0
+
+    local raycast_manager = sdk.get_managed_singleton("app.AppRaycastManager")
+    if not raycast_manager then return nil end
+
+    -- cast on player hit layer
+    local raycast_result = raycast_manager:call("castRayImmediate(app.RAY_CAST_TYPE, via.vec3, via.vec3, System.Action`1<via.physics.CastRayResult>)", 15, eye_pos + forward * min_distance, eye_pos + forward * 1000, nil)
+    if not raycast_result then return nil end
+    local num_contact = raycast_result:get_NumContactPoints()
+
+    -- cast on terrain layer
+    if num_contact == 0 then
+        raycast_result = raycast_manager:call("castRayImmediate(app.RAY_CAST_TYPE, via.vec3, via.vec3, System.Action`1<via.physics.CastRayResult>)", 0, eye_pos + forward * min_distance, eye_pos + forward * 1000, nil)
+        if not raycast_result then return nil end
+        num_contact = raycast_result:get_NumContactPoints()
+    end
+
+    if num_contact == 0 then
+        return eye_pos + forward * 1000
+    end
+    local contact_point = raycast_result:getContactPoint(0)
+    if not contact_point then return nil end
+    local contact_pos = contact_point.Position
+    return contact_pos
 end
 
 --------------------------------
@@ -472,6 +515,8 @@ end
 local in_mod_shoot_shell = false
 local in_callMazzleFx = false
 local shell_start_pos = nil
+local shell_start_rot = nil
+local should_skip_doAfterCreateEffectEventCore = false
 local mod_managed_shell = {}
 local MAX_MANAGED_SHELL = 100
 
@@ -539,10 +584,14 @@ sdk.hook(sdk.find_type_definition("app.cEffectController"):get_method("playEffec
         if not in_mod_shoot_shell then return end
         if not in_callMazzleFx then return end
         if not shell_start_pos then return end
+        if not shell_start_rot then return end
         local effect_override_params = sdk.to_managed_object(args[6])
         if not effect_override_params then return end
+        
         effect_override_params:set_IsUpdatePos(true)
         effect_override_params:set_Pos(shell_start_pos)
+        effect_override_params:set_IsUpdateRotation(true)
+        effect_override_params:set_Rotation(shell_start_rot)
     end,
     nil
 )
@@ -550,12 +599,7 @@ sdk.hook(sdk.find_type_definition("app.cEffectController"):get_method("playEffec
 -- ace.EngineSingletonCallbackManager.doAfterCreateEffectEventCore(via.effect.script.EffectManager.AfterCreateEffectInfo)
 sdk.hook(sdk.find_type_definition("ace.EngineSingletonCallbackManager"):get_method("doAfterCreateEffectEventCore(via.effect.script.EffectManager.AfterCreateEffectInfo)"),
     function(args)
-        if in_mod_shoot_shell then
-            -- local this = sdk.to_managed_object(args[2])
-            -- local info = sdk.to_managed_object(args[3])
-            -- info:add_ref_permanent()
-            -- log.debug(string.format("doAfterCreateEffectEventCore: %s, %s", string.format("%x", this:get_address()), string.format("%x", info:get_address())))
-
+        if should_skip_doAfterCreateEffectEventCore then
             return sdk.PreHookResult.SKIP_ORIGINAL
         end
     end,
@@ -567,12 +611,14 @@ local frame_types_id2str = {}
 local frame_types_str2id = {}
 local frame_types_str2func = {}
 local frame_types_str2ui = {}
-local function register_frame_type(name, get_frame_func, ui)
+local frame_types_str2init_args = {}
+local function register_frame_type(name, get_frame_func, ui, init_args)
     local id = #frame_types_id2str + 1
     frame_types_id2str[id] = name
     frame_types_str2id[name] = id
     frame_types_str2func[name] = get_frame_func
     frame_types_str2ui[name] = ui
+    frame_types_str2init_args[name] = init_args
 end
 
 -- transform helpers
@@ -614,10 +660,20 @@ local function get_shell_transform(shoot_args, old_frame_transform)
     return {position = position, rotation = rotation}
 end
 
--- shoot shell function
 local function shoot_single_shell(shoot_args, old_frame_transform)
+
     local weapon_id = shoot_args.weapon_id
     local shell_id = shoot_args.shell_id
+
+    local function shoot(shell_create_controller, shell_id, shellShootingInfo)
+        local new_shell = shell_create_controller:shootShell(shell_id, shellShootingInfo, nil)
+        if new_shell then
+            local managed_shell = { shell = new_shell, shoot_args = shoot_args }
+            push_queue(mod_managed_shell, managed_shell, MAX_MANAGED_SHELL)
+        else
+            log.warn("Failed to get shell instance: " .. tostring(weapon_id) .. " " .. tostring(shell_id))
+        end
+    end
 
     local transform = get_shell_transform(shoot_args, old_frame_transform)
     if not transform then return end
@@ -638,37 +694,53 @@ local function shoot_single_shell(shoot_args, old_frame_transform)
     start_rot:set_field("_Value", rotation)
     shellShootingInfo:set_field("<StartRot>k__BackingField", start_rot)
 
-    -- get shell controller and current data
-    local wp = get_wp()
-    if not wp then return end
-    local wp_type = get_wp_type()
-    if not wp_type or wp_type == -1 then return end
-    local shell_create_controller = wp._ShellCreateController
-    if not shell_create_controller then return end
-    local current_shell_list = get_shell_list(wp_type)
-    if not current_shell_list then return end
-    
-    -- replace shell list
-    local shell_list_cache = weapon_caching[weapon_id].shell_list
-    if not shell_list_cache then return end
-    shell_create_controller:setup(shell_create_controller:get_ShellOwner(), shell_list_cache)
-    
-    -- shoot shell
-    in_mod_shoot_shell = true
-    shell_start_pos = position
-    pcall(function()
-        log.debug("shooting shell 1")
-        local new_shell = shell_create_controller:shootShell(shell_id, shellShootingInfo, nil)
-        if new_shell then
-            local managed_shell = { shell = new_shell, shoot_args = shoot_args }
-            push_queue(mod_managed_shell, managed_shell, MAX_MANAGED_SHELL)
-        end
-    end)
-    shell_start_pos = nil
-    in_mod_shoot_shell = false
+    if weapon_id >= 0 then
+        -- get shell controller and current data
+        local wp = get_wp()
+        if not wp then return end
+        local wp_type = get_wp_type()
+        if not wp_type or wp_type == -1 then return end
+        local shell_create_controller = wp._ShellCreateController
+        if not shell_create_controller then return end
+        local current_shell_list = get_shell_list(wp_type)
+        if not current_shell_list then return end
+        
+        -- replace shell list
+        local shell_list_cache = weapon_caching[weapon_id].shell_list
+        if not shell_list_cache then return end
+        shell_create_controller:setup(shell_create_controller:get_ShellOwner(), shell_list_cache)
+        
+        -- shoot shell
+        in_mod_shoot_shell = true
+        should_skip_doAfterCreateEffectEventCore = true
+        shell_start_pos = position
+        shell_start_rot = rotation
+        pcall(shoot, shell_create_controller, shell_id, shellShootingInfo)
+        shell_start_pos = nil
+        shell_start_rot = nil
+        should_skip_doAfterCreateEffectEventCore = false
+        in_mod_shoot_shell = false
 
-    -- restore
-    shell_create_controller:setup(shell_create_controller:get_ShellOwner(), current_shell_list)
+        -- restore
+        shell_create_controller:setup(shell_create_controller:get_ShellOwner(), current_shell_list)
+    elseif weapon_id == -1 then
+        -- get shell controller and current data
+        local hunter = get_hunter()
+        if not hunter then return end
+        local shell_create_controller = hunter._ShellCreateController
+        if not shell_create_controller then return end
+        
+        -- shoot shell
+        in_mod_shoot_shell = true
+        shell_start_pos = position
+        shell_start_rot = rotation
+        should_skip_doAfterCreateEffectEventCore = true
+        pcall(shoot, shell_create_controller, shell_id, shellShootingInfo)
+        should_skip_doAfterCreateEffectEventCore = false
+        shell_start_pos = nil
+        shell_start_rot = nil
+        in_mod_shoot_shell = false
+    end
 end
 
 -- register shell shooting
@@ -690,13 +762,15 @@ end
 -- shell register routine
 local last_motion = nil
 local last_sub_motion = nil
+local last_update_motion_time = nil
 
 local function should_register_shell(motion, start_frame)
     local last_motion = motion.LayerID == 0 and last_motion or last_sub_motion
     if not last_motion then return false end
+    if not last_update_motion_time then return false end
 
     local is_same_motion = motion.MotionID == last_motion.MotionID and motion.MotionBankID == last_motion.MotionBankID
-    local last_frame = is_same_motion and last_motion.Frame or (motion.Frame - 1)
+    local last_frame = is_same_motion and last_motion.Frame or (motion.Frame - (math.max(os.clock() - last_update_motion_time, 1.0) * 60))
     return motion.Frame >= start_frame and last_frame < start_frame
 end
 
@@ -721,7 +795,6 @@ re.on_application_entry("UpdateMotionFrame", function()
 
         for _, segment_config in ipairs(target_motion_config.segments) do
             if not segment_config.enabled then goto continue1 end
-            log.debug("check should reigster shell")
             if not should_register_shell(motion, segment_config.start_frame) then goto continue1 end
             
             for _, shoot_args in ipairs(segment_config.shoot_args_container) do
@@ -735,6 +808,7 @@ re.on_application_entry("UpdateMotionFrame", function()
     
     last_motion = main_motion
     last_sub_motion = sub_motion
+    last_update_motion_time = os.clock()
 end)
 
 -- shell shooting routine
@@ -809,21 +883,55 @@ end
 local latest_shell_queue = {}
 local MAX_QUEUE_SIZE = 20
 
--- app.Weapon.createShell(System.Int32, app.cShellShootingInfo, System.Action`1<ace.ShellBase>)
-sdk.hook(sdk.find_type_definition("app.Weapon"):get_method("createShell(System.Int32, app.cShellShootingInfo, System.Action`1<ace.ShellBase>)"),
+-- ace.cShellCreateController.shootShell(System.Int32, ace.cShellShootingInfoBase, System.Action`1<ace.ShellBase>)
+sdk.hook(sdk.find_type_definition("ace.cShellCreateController"):get_method("shootShell(System.Int32, ace.cShellShootingInfoBase, System.Action`1<ace.ShellBase>)"),
     function(args)
+        if in_mod_shoot_shell then return end
+
         local this = sdk.to_managed_object(args[2])
         if not this then return end
-        local this_hunter = this:get_Hunter()
-        if not this_hunter then return end
-        if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
-        local weapon_id = this:get_WpType()
-        if not weapon_id or weapon_id == -1 then return end
+        
+        local wp = get_wp()
+        if not wp then return end
+        local wp_shell_create_controller = wp._ShellCreateController
+        if not wp_shell_create_controller then return end
+
+        local hunter = get_hunter()
+        if not hunter then return end
+        local hunter_shell_create_controller = hunter._ShellCreateController
+        if not hunter_shell_create_controller then return end
+
+        local is_hunter_controller = this:Equals(hunter_shell_create_controller)
+        local is_wp_controller = this:Equals(wp_shell_create_controller)
+        if not (is_hunter_controller or is_wp_controller) then return end
+
+        local weapon_id = -1
+        if is_wp_controller then
+            weapon_id = wp:get_WpType()
+            if not weapon_id or weapon_id == -1 then return end
+        end
+
         local shell_id = sdk.to_int64(args[3]) & 0xFFFFFFFF
         push_queue(latest_shell_queue, {weapon_id = weapon_id, shell_id = shell_id}, MAX_QUEUE_SIZE)
     end,
     nil
 )
+
+-- -- app.Weapon.createShell(System.Int32, app.cShellShootingInfo, System.Action`1<ace.ShellBase>)
+-- sdk.hook(sdk.find_type_definition("app.Weapon"):get_method("createShell(System.Int32, app.cShellShootingInfo, System.Action`1<ace.ShellBase>)"),
+--     function(args)
+--         local this = sdk.to_managed_object(args[2])
+--         if not this then return end
+--         local this_hunter = this:get_Hunter()
+--         if not this_hunter then return end
+--         if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+--         local weapon_id = this:get_WpType()
+--         if not weapon_id or weapon_id == -1 then return end
+--         local shell_id = sdk.to_int64(args[3]) & 0xFFFFFFFF
+--         push_queue(latest_shell_queue, {weapon_id = weapon_id, shell_id = shell_id}, MAX_QUEUE_SIZE)
+--     end,
+--     nil
+-- )
 
 --------------------------------
 -- UI
@@ -906,14 +1014,18 @@ end
 
 local function shoot_args_ui(shoot_args)
     local changed = false
+    if not shoot_args then return end
     changed, shoot_args.enabled = imgui.checkbox("Enabled", shoot_args.enabled)
-    changed, shoot_args.weapon_id = imgui.drag_int("Weapon ID", shoot_args.weapon_id, 1, 0, MAX_WP_TYPE)
+    changed, shoot_args.weapon_id = imgui.drag_int("Weapon ID", shoot_args.weapon_id, 1, -1, MAX_WP_TYPE)
     changed, shoot_args.shell_id = imgui.drag_int("Shell ID", shoot_args.shell_id, 1, 0, 1000)
     changed, shoot_args.frame = ui_combo(shoot_args.frame, "Frame", frame_types_id2str, frame_types_str2id)
+
+    shoot_args.frame_args = merge_tables(frame_types_str2init_args[shoot_args.frame](), shoot_args.frame_args or {})
+
     if imgui.tree_node("Frame Options") then
         local ui_func = frame_types_str2ui[shoot_args.frame]
         if ui_func then
-            ui_func()
+            ui_func(shoot_args.frame_args)
         end
         imgui.tree_pop()
     end
@@ -954,6 +1066,9 @@ local function segment_config_ui(segment_config)
     changed, segment_config.enabled = imgui.checkbox("Enabled", segment_config.enabled)
     changed, segment_config.start_frame = imgui.drag_int("Start Frame", segment_config.start_frame, 1, 0, 1000)
     if imgui.tree_node("Shoot Args Container") then
+        if not segment_config.shoot_args_container then
+            segment_config.shoot_args_container = {}
+        end
         for i, shoot_args in ipairs(segment_config.shoot_args_container) do
             if imgui.tree_node("Shoot Args " .. tostring(i)) then
                 shoot_args_ui(shoot_args)
@@ -1064,7 +1179,6 @@ re.on_draw_ui(function()
                 local add_motion_button_name = motion_config_exists and "Overwrite" or "Add"
 
                 if imgui.button(add_motion_button_name) then
-                    log.debug("Adding motion config: " .. key .. " to preset " .. UI_vars.preset_to_add)
                     local motion_config = get_empty_motion_config()
                     motion_config.name = UI_vars.motion_name_to_add
                     motion_config.segments = copy3(config.preview_segments)
@@ -1234,9 +1348,60 @@ register_frame_type("hunter",
 function(frame_args) 
     return get_hunter_transform()
 end, 
-function()
+function(frame_args)
     imgui.text("The initial transform of the shell is based on the hunter's transform.")
+end,
+function()
+    return {}
 end)
+
+local function register_aim_frame_type()
+    local function init_args()
+        return {
+            offset_to_hunter = { front = 0.0, right = 0.0, up = 0.0 },
+        }
+    end
+
+    local function get_frame(args)
+        local hunter_transform = get_hunter_transform()
+        local start_pos = hunter_transform.position
+            + hunter_transform.forward * args.offset_to_hunter.front
+            + hunter_transform.right * args.offset_to_hunter.right
+            + hunter_transform.up * args.offset_to_hunter.up
+        local target_pos = get_camera_lookat_position()
+        if not target_pos then return nil end
+        local forward = (target_pos - start_pos):normalized()
+        if forward:length() == 0 then
+            forward = hunter_transform.forward
+        end
+        local right = nil
+        if math.abs(forward:dot(Vector3f.new(0, 1, 0))) > 0.999 then
+            right = hunter_transform.right
+        else
+            right = forward:cross(Vector3f.new(0, 1, 0)):normalized()
+        end
+        local up = right:cross(forward):normalized()
+        local rotation = ax2quat(right * -1, up, forward)
+        return { 
+            position = start_pos, 
+            rotation = rotation,
+            forward = forward,
+            right = right,
+            up = up,
+        }
+    end
+
+    local function ui(args)
+        local changed = false
+        imgui.text("The initial transform of the shell is based on the hunter's transform, aiming at the camera look-at position.")
+        changed, args.offset_to_hunter.front = imgui.drag_float("Front", args.offset_to_hunter.front, 0.1, -100.0, 100.0, "%.2f")
+        changed, args.offset_to_hunter.right = imgui.drag_float("Right", args.offset_to_hunter.right, 0.1, -100.0, 100.0, "%.2f")
+        changed, args.offset_to_hunter.up = imgui.drag_float("Up", args.offset_to_hunter.up, 0.1, -100.0, 100.0, "%.2f")
+    end
+
+    register_frame_type("aim", get_frame, ui, init_args)
+end
+register_aim_frame_type()
 
 -- register segment config helpers
 local function register_sphere_line_helper()
