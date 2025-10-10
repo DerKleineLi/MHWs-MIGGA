@@ -1550,8 +1550,8 @@ function(args)
 
     local motion_config = get_motion_config(hit_data.key)
     for name, func in pairs(third_party_property_getter) do
-        local properties = func(this, hit_info)
-        if properties then
+        local ok, properties = pcall(func, this_hunter, hit_info)
+        if ok and properties then
             motion_config.enabled = true
             motion_config.properties = properties
             break
@@ -1643,8 +1643,8 @@ function(args)
 
     local motion_config = get_motion_config(hit_data.key)
     for name, func in pairs(third_party_property_getter) do
-        local properties = func(this, hit_info)
-        if properties then
+        local ok, properties = pcall(func, this, hit_info)
+        if ok and properties then
             motion_config.enabled = true
             motion_config.properties = properties
             break
@@ -1704,8 +1704,8 @@ function(args)
 
     local motion_config = get_motion_config(hit_data.key)
     for name, func in pairs(third_party_property_getter) do
-        local properties = func(this, hit_info)
-        if properties then
+        local ok, properties = pcall(func, this_hunter, hit_info)
+        if ok and properties then
             motion_config.enabled = true
             motion_config.properties = properties
             break
