@@ -849,6 +849,8 @@ end)
 local mv_manager_property_getter_registered = false
 
 local function property_getter(this, hit_info)
+    if not this then return nil end
+    if not hit_info then return nil end
     local this_type = this:get_type_definition():get_full_name()
     if this_type ~= "app.mcShellColHit" then
         return nil
