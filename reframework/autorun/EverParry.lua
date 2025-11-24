@@ -15,7 +15,7 @@ end
 
 local saved_config = json.load_file(config_file) or {}
 
-local effect_types_id2str = {"parry", "invincible", "mv_manager"}
+local effect_types_id2str = {"parry", "invincible", "mv_manager", "change_action"}
 local effect_types_str2id = {}
 for id, str in ipairs(effect_types_id2str) do
     effect_types_str2id[str] = id
@@ -34,6 +34,9 @@ local function get_empty_segment_config()
         parry_value = 90,
         invisible_time = 0.0,
         mv_manager_properties = mv_manager_properties,
+        change_action_layer = 0,
+        change_action_category = 0,
+        change_action_index = 0,
     }
 end
 
@@ -202,6 +205,29 @@ function contains_token(haystack, needle)
     return false
 end
 
+local function get_action()
+    local hunter = get_hunter()
+    local action_controller     = hunter:get_BaseActionController()
+    if not action_controller then return nil end
+    local action_id = action_controller:get_CurrentActionID()
+    if not action_id then return nil end
+    local action_id_type = sdk.find_type_definition("ace.ACTION_ID")
+    return {
+        Index = sdk.get_native_field(action_id, action_id_type, "_Index"),
+        Category = sdk.get_native_field(action_id, action_id_type, "_Category"),
+    }
+end
+
+local function change_action(layer, category, index)
+    local hunter = get_hunter()
+    if not hunter then return end
+    local ActionIDType = sdk.find_type_definition("ace.ACTION_ID")
+    local instance = ValueType.new(ActionIDType)
+    sdk.set_native_field(instance, ActionIDType, "_Category", category)
+    sdk.set_native_field(instance, ActionIDType, "_Index", index)
+    hunter:call("changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)", layer, instance, true)
+end
+
 -- core
 local EFFECT_WP_TYPE = 0 -- Great Sword
 local effect_override_types = {
@@ -245,11 +271,15 @@ end
 -- parry
 local should_restore_effect = false
 local should_skip_attack = false
+local should_change_action = false
+local action_to_change = {category = 0, index = 0}
+local hit_info_cache = nil
 -- app.EnemyCharacter.evHit_AttackPreProcess(app.HitInfo)
 sdk.hook(sdk.find_type_definition("app.EnemyCharacter"):get_method("evHit_AttackPreProcess(app.HitInfo)"),
 function(args)
     local hit_info = sdk.to_managed_object(args[3])
     if not hit_info then return end
+    hit_info_cache = hit_info
     local damage_owner = hit_info:get_field("<DamageOwner>k__BackingField")
     local damage_owner_name = damage_owner:get_Name()
     -- log.debug("DamageOwner: " .. damage_owner_name)
@@ -280,17 +310,14 @@ function(args)
             local target_motion_config = get_motion_config(config_key)
             for _, target_config in ipairs(target_motion_config.segments) do
                 if target_config.enabled and motion_frame >= target_config.start_frame and motion_frame <= target_config.end_frame then
-                    if target_config.effect_type == "parry" then
-                        if not is_parry_able then goto continue end
-                        if on_vanilla_parry then goto continue end
-
+                    if target_config.effect_type == "parry" and is_parry_able and not on_vanilla_parry then
                         hit_info:set_field("<CollisionLayer>k__BackingField", 18) -- PARRY
                         local attack_param_pl = sdk.create_instance("app.cAttackParamPl", true)
                         hit_info:set_DamageAttackData(attack_param_pl)
                         hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectType", 18)
                         hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_ParryDamage", target_config.parry_value)
                         hit_info:get_field("<DamageAttackData>k__BackingField"):set_field("_HitEffectOverwriteConnectID", -1)
-                        get_hunter():startNoHitTimer(target_config.invisible_time)
+                        
                         -- log.debug("parry triggered")
                         local effect = get_effect()
                         -- log.debug("effect: " .. string.format("%x", effect:get_address()))
@@ -303,13 +330,24 @@ function(args)
                             effect:lateUpdate()
                             should_restore_effect = true
                         end
-                    elseif target_config.effect_type == "invincible" then
-                        get_hunter():startNoHitTimer(target_config.invisible_time)
+                    end
+
+                    if target_config.effect_type == "invincible" then
                         should_skip_attack = true
-                    elseif target_config.effect_type == "mv_manager" and _MV_MANAGER then
-                        get_hunter():startNoHitTimer(target_config.invisible_time)
+                    end
+
+                    if target_config.effect_type == "mv_manager" and _MV_MANAGER then
                         _MV_MANAGER.set_properties(attack_data, target_config.mv_manager_properties)
                     end
+
+                    if target_config.effect_type == "change_action" then
+                        should_change_action = true
+                        should_skip_attack = true
+                        action_to_change.category = target_config.change_action_category
+                        action_to_change.index = target_config.change_action_index
+                    end
+
+                    get_hunter():startNoHitTimer(target_config.invisible_time)
                 end
                 ::continue::
             end
@@ -323,12 +361,37 @@ end, function(retval)
         effect:requestSetDataContainer(current_prefab, 0, wp_type)
         should_restore_effect = false
     end
-    if should_skip_attack then
-        should_skip_attack = false
-        return sdk.to_ptr(2) -- SKIP
-    end
+    -- if should_skip_attack then
+    --     should_skip_attack = false
+    --     return sdk.to_ptr(2) -- SKIP
+    -- end
     return retval
 end)
+
+
+-- app.HunterCharacter.evHit_Damage
+sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("evHit_Damage(app.HitInfo)"),
+function(args)
+    local this = sdk.to_managed_object(args[2])
+    if not this then return end
+    if not (this:get_IsMaster() and this:get_IsUserControl()) then return end
+
+    local hit_info = sdk.to_managed_object(args[3])
+    if not hit_info then return end
+    if not hit_info_cache then return end
+    if not hit_info_cache:Equals(hit_info) then return end
+    hit_info_cache = nil
+
+    if should_change_action then
+        change_action(0, action_to_change.category, action_to_change.index)
+        should_change_action = false
+    end
+
+    if should_skip_attack then
+        should_skip_attack = false
+        return sdk.PreHookResult.SKIP_ORIGINAL
+    end
+end, nil)
 
 
 -- UI
@@ -391,7 +454,13 @@ re.on_draw_ui(function()
         if imgui.tree_node("Current Motion") then
             local motion = get_motion()
             local weapon_type = get_wp_type()
-            imgui.text("Weapon Type: " .. tostring(weapon_type))
+            local action = get_action()
+            if weapon_type then
+                imgui.text("Weapon Type: " .. tostring(weapon_type))
+            end
+            if action then
+                imgui.text("Current Action: Category " .. tostring(action.Category) .. ", Index " .. tostring(action.Index))
+            end
             if motion then
                 local motion_id = motion.MotionID
                 local motion_bank_id = motion.MotionBankID
@@ -469,16 +538,29 @@ re.on_draw_ui(function()
                                         imgui.table_next_column()
                                         changed, segment.end_frame = imgui.drag_int("End Frame", segment.end_frame, 1, 0, 1000)
                                         imgui.end_table()
-                                        changed, segment.parry_value = imgui.drag_float("Parry Value", segment.parry_value, 1, 0, 300, "%.0f")
+                                        
+                                        if segment.effect_type == "parry" then
+                                            changed, segment.parry_value = imgui.drag_float("Parry Value", segment.parry_value, 1, 0, 300, "%.0f")
+                                        end
+                                        
                                         changed, segment.invisible_time = imgui.drag_float("Invisible Time", segment.invisible_time, 0.01, 0.0, 5.0, "%.2f")
-                                        if _MV_MANAGER then
-                                            if segment.mv_manager_properties == nil then
-                                                segment.mv_manager_properties = _MV_MANAGER.get_empty_property_config()
+                                        
+                                        if segment.effect_type == "mv_manager" then
+                                            if _MV_MANAGER then
+                                                if segment.mv_manager_properties == nil then
+                                                    segment.mv_manager_properties = _MV_MANAGER.get_empty_property_config()
+                                                end
+                                                if imgui.tree_node("MV Manager Properties") then
+                                                    _MV_MANAGER.ui_properties(segment.mv_manager_properties)
+                                                    imgui.tree_pop()
+                                                end
                                             end
-                                            if imgui.tree_node("MV Manager Properties") then
-                                                _MV_MANAGER.ui_properties(segment.mv_manager_properties)
-                                                imgui.tree_pop()
-                                            end
+                                        end
+
+                                        if segment.effect_type == "change_action" then
+                                            -- changed, segment.change_action_layer = imgui.drag_int("Action Layer", segment.change_action_layer or 0, 1, 0, 10)
+                                            changed, segment.change_action_category = imgui.drag_int("Action Category", segment.change_action_category or 0, 1, 0, 1000)
+                                            changed, segment.change_action_index = imgui.drag_int("Action Index", segment.change_action_index or 0, 1, 0, 1000)
                                         end
                                         
                                         if #motion_config.segments > 1 then
