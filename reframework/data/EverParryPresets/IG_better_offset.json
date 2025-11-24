@@ -1,0 +1,75 @@
+{
+    "deleted": false,
+    "enabled": true,
+    "motion_configs": {
+        "10_0_20_254": {
+            "name": "IG_marking",
+            "segments": [
+                {
+                    "change_action_category": 2,
+                    "change_action_index": 53,
+                    "effect_type": "change_action",
+                    "enabled": true,
+                    "end_frame": 1000,
+                    "invisible_time": 0.5,
+                    "parry_value": 90.0,
+                    "start_frame": 0
+                }
+            ]
+        },
+        "10_0_20_267": {
+            "name": "IG_ground_offset",
+            "segments": [
+                {
+                    "effect_type": "parry",
+                    "enabled": true,
+                    "end_frame": 45,
+                    "invisible_time": 0.25,
+                    "parry_value": 90.0,
+                    "start_frame": 10
+                }
+            ]
+        },
+        "10_0_20_268": {
+            "name": "IG_ground_weak_offset",
+            "segments": [
+                {
+                    "effect_type": "parry",
+                    "enabled": true,
+                    "end_frame": 45,
+                    "invisible_time": 0.25,
+                    "parry_value": 90.0,
+                    "start_frame": 10
+                }
+            ]
+        },
+        "10_0_20_350": {
+            "name": "IG_air_offset_air",
+            "segments": [
+                {
+                    "effect_type": "parry",
+                    "enabled": true,
+                    "end_frame": 1000,
+                    "invisible_time": 0.25,
+                    "parry_value": 90.0,
+                    "start_frame": 10
+                }
+            ]
+        },
+        "10_0_20_355": {
+            "name": "IG_marking_air",
+            "segments": [
+                {
+                    "change_action_category": 2,
+                    "change_action_index": 53,
+                    "effect_type": "change_action",
+                    "enabled": true,
+                    "end_frame": 1000,
+                    "invisible_time": 0.5,
+                    "parry_value": 90.0,
+                    "start_frame": 0
+                }
+            ]
+        }
+    }
+}
