@@ -379,7 +379,9 @@ function(args)
     local hit_info = sdk.to_managed_object(args[3])
     if not hit_info then return end
     if not hit_info_cache then return end
-    if not hit_info_cache:Equals(hit_info) then return end
+    success, is_equal = pcall(function() return hit_info_cache:Equals(hit_info) end)
+    if not success then return end
+    if not is_equal then return end
     hit_info_cache = nil
 
     if should_change_action then
