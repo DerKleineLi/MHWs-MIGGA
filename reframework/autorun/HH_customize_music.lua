@@ -29,6 +29,7 @@ local config = {
     musics = {},
     tone_colors = {0, 0, 0},
     HibikiShellType = 0,
+    reserve_presets = {nil, nil},
 }
 for i = 1, 11 do
     config.musics[i] = null_music()
@@ -47,6 +48,8 @@ local function get_stem(path)
 end
 
 local preset_configs = {}
+local preset_name2idx = {}
+local preset_idx2name = {}
 
 local function get_empty_preset_config()
     local output = {
@@ -61,6 +64,10 @@ local function get_empty_preset_config()
     return output
 end
 
+local ui_table = {
+    new_preset_name = "",
+}
+
 local function load_preset_configs()
     preset_configs = {}
     local preset_files = fs.glob(preset_dir .. ".*\\.json$")
@@ -73,8 +80,30 @@ local function load_preset_configs()
             preset_configs[preset_name] = nil
         end
     end
+    preset_idx2name = {}
+    for name, _ in pairs(preset_configs) do
+        table.insert(preset_idx2name, name)
+    end
+    table.sort(preset_idx2name)
+    preset_name2idx = {}
+    for i, name in ipairs(preset_idx2name) do
+        preset_name2idx[name] = i
+        if name == config.reserve_presets[1] then
+            ui_table.new_preset_name = name
+        end
+    end
+
 end
 load_preset_configs()
+
+local function load_preset(preset_name)
+    if preset_configs[preset_name] then
+        config.musics = preset_configs[preset_name].musics
+        config.tone_colors = preset_configs[preset_name].tone_colors
+        config.HibikiShellType = preset_configs[preset_name].HibikiShellType
+        ui_table.new_preset_name = preset_name
+    end
+end
 
 -- helper functions
 local function get_hunter()
@@ -166,11 +195,20 @@ sdk.hook(sdk.find_type_definition("app.HunterCharacter.cHunterExtendPlayer"):get
     end
 end, nil)
 
+-- app.HunterCharacter.changeWeaponFromReserve(System.Boolean)
+sdk.hook(sdk.find_type_definition("app.HunterCharacter"):get_method("changeWeaponFromReserve"), function(args)
+    local this_hunter = sdk.to_managed_object(args[2])
+    if not this_hunter then return end
+    if not (this_hunter:get_IsMaster() and this_hunter:get_IsUserControl()) then return end
+
+    local reserved_preset = config.reserve_presets[2]
+    load_preset(reserved_preset)
+    config.reserve_presets[2] = config.reserve_presets[1]
+    config.reserve_presets[1] = reserved_preset
+end, nil)
+
+
 -- ui
-local ui_table = {
-    selected_preset = nil,
-    new_preset_name = "",
-}
 re.on_draw_ui(function()
     local function enum_combo(name, value, enum_type)
         local valuepp = value + 1
@@ -195,42 +233,47 @@ re.on_draw_ui(function()
         imgui.end_group()
 
         -- Combo for preset selection
-        local preset_names = {}
-        for name, _ in pairs(preset_configs) do
-            table.insert(preset_names, name)
-        end
-        table.sort(preset_names)
-        local selected_preset_idx = 1
-        if not ui_table.selected_preset or not preset_configs[ui_table.selected_preset] then
-            ui_table.selected_preset = preset_names[1]
-        end
-        for i, name in ipairs(preset_names) do
-            if name == ui_table.selected_preset then
-                selected_preset_idx = i
-                break
-            end
-        end
-        changed, selected_preset_idx = imgui.combo("Preset", selected_preset_idx, preset_names)
+        local selected_preset_idx = preset_name2idx[config.reserve_presets[1]] or 1
+        changed, selected_preset_idx = imgui.combo("Current Preset", selected_preset_idx, preset_idx2name)
         if changed then
-            ui_table.selected_preset = preset_names[selected_preset_idx]
+            config.reserve_presets[1] = preset_idx2name[selected_preset_idx]
+            if config.enabled then
+                load_preset(config.reserve_presets[1])
+                any_changed = true
+            end
         end
 
         imgui.same_line()
-        if imgui.button("Load Preset") and ui_table.selected_preset and preset_configs[ui_table.selected_preset] then
-            config.musics = preset_configs[ui_table.selected_preset].musics
-            config.tone_colors = preset_configs[ui_table.selected_preset].tone_colors
-            config.HibikiShellType = preset_configs[ui_table.selected_preset].HibikiShellType
-            ui_table.new_preset_name = ui_table.selected_preset
+        if imgui.button("Load Preset") and config.reserve_presets[1] and preset_configs[config.reserve_presets[1]] then
+            load_preset(config.reserve_presets[1])
             any_changed = true
         end
 
         imgui.same_line()
-        if imgui.button("Delete Preset") and ui_table.selected_preset and preset_configs[ui_table.selected_preset] then
-            local preset_path = preset_dir .. ui_table.selected_preset .. ".json"
-            local preset = preset_configs[ui_table.selected_preset]
+        if imgui.button("Delete Preset") and config.reserve_presets[1] and preset_configs[config.reserve_presets[1]] then
+            local preset_path = preset_dir .. config.reserve_presets[1] .. ".json"
+            local preset = preset_configs[config.reserve_presets[1]]
             preset.deleted = true
             json.dump_file(preset_path, preset)
             load_preset_configs()
+        end
+
+        local selected_reserved_preset_idx = preset_name2idx[config.reserve_presets[2]] or 1
+        changed, selected_reserved_preset_idx = imgui.combo("Reserved Preset", selected_reserved_preset_idx, preset_idx2name)
+        if changed then
+            config.reserve_presets[2] = preset_idx2name[selected_reserved_preset_idx]
+        end
+
+        imgui.same_line()
+        if imgui.button("Swap Reserved Preset") then
+            local temp = config.reserve_presets[1]
+            config.reserve_presets[1] = config.reserve_presets[2]
+            config.reserve_presets[2] = temp
+            if config.enabled then
+                load_preset(config.reserve_presets[1])
+                any_changed = true
+            end
+            any_changed = true
         end
 
         -- Save new preset
@@ -246,7 +289,7 @@ re.on_draw_ui(function()
                 HibikiShellType = config.HibikiShellType,
             }
             json.dump_file(preset_path, preset)
-            ui_table.selected_preset = ui_table.new_preset_name
+            config.reserve_presets[1] = ui_table.new_preset_name
             load_preset_configs()
         end
         imgui.separator()
