@@ -1,4 +1,5 @@
--- config
+-- Weapon Caching
+
 local config_file_path = "weapon_caching.json"
 local function merge_tables(t1, t2)
     for k, v in pairs(t2) do
@@ -25,14 +26,19 @@ re.on_config_save(
     end
 )
 
--- helper functions
 local function get_hunter()
     local player_manager = sdk.get_managed_singleton("app.PlayerManager")
     if not player_manager then return nil end
-    local player_info = player_manager:getMasterPlayer()
-    if not player_info then return nil end
-    local hunter_character = player_info:get_Character()
-    return hunter_character
+    local function read(obj,name)
+        if not obj then return nil end
+        local ok,value=pcall(function() return obj:call(name) end)
+        return ok and value or nil
+    end
+    local info=read(player_manager,'getMasterPlayerInfo') or read(player_manager,'get_MasterPlayerInfo')
+    local hunter=read(info,'getCharacter') or read(info,'get_Character')
+    if hunter then return hunter end
+    local player=read(player_manager,'getMasterPlayer') or read(player_manager,'get_MasterPlayer')
+    return read(player,'get_Character') or read(player,'getCharacter')
 end
 
 local function get_wp_type()
@@ -51,13 +57,14 @@ local function get_wp_data(type)
   return sdk.find_type_definition("app.WeaponUtil"):get_method("getWeaponData(System.Int32, app.WeaponDef.TYPE)"):call(nil, 0, type)
 end
 
--- core
 local MAX_WP_TYPE = 13
 
--- task_lists[wp_type] = { list of cache functions }
 local task_lists = {}
+local cache_status = {}
+local cache_components = {}
 for i = 0, MAX_WP_TYPE do
     task_lists[i] = {}
+    cache_status[i] = 'No tasks'
 end
 
 local current_caching_type = nil
@@ -71,18 +78,48 @@ local TASK_STATE = {
 }
 local task_state = TASK_STATE.IDLE
 
--- API: Register a new caching task
+local function describe_components(func, wp_type)
+    if not debug or type(debug.getupvalue) ~= 'function' then return nil end
+    local seen = {}
+    local scanned = 0
+    local function inspect(fn, depth)
+        if depth > 3 or seen[fn] or scanned >= 32 then return nil end
+        scanned = scanned + 1
+        seen[fn] = true
+        local children = {}
+        for i = 1, 64 do
+            local name, value = debug.getupvalue(fn, i)
+            if not name then break end
+            if name == 'weapon_caching' and type(value) == 'table' then
+                local entry = rawget(value, wp_type)
+                if type(entry) == 'table' then
+                    local shell = rawget(entry, 'shell_list') ~= nil
+                    local sound = rawget(entry, 'sound_shell_list_data') ~= nil
+                    return 'shell='..(shell and 'present' or 'missing')..
+                        ', sound='..(sound and 'present' or 'missing')
+                end
+            elseif name ~= '_ENV' and type(value) == 'function' then
+                children[#children + 1] = value
+            end
+        end
+        for _, child in ipairs(children) do
+            local result = inspect(child, depth + 1)
+            if result then return result end
+        end
+    end
+    local ok, result = pcall(inspect, func, 0)
+    return ok and result or nil
+end
+
 local function register_cache_task(target_wp_type, cache_func)
-    -- target_wp_type: integer in [0, MAX_WP_TYPE]
-    -- cache_func: function that performs caching, returns true if successful
     if target_wp_type < 0 or target_wp_type > MAX_WP_TYPE then
         log.error("Invalid weapon type: " .. tostring(target_wp_type))
         return
     end
     table.insert(task_lists[target_wp_type], cache_func)
+    cache_status[target_wp_type] = 'Pending'
 end
 
--- find the next weapon type that has pending tasks
 local function next_wp_type()
     for wp_type = 0, MAX_WP_TYPE do
         if #task_lists[wp_type] > 0 then
@@ -103,7 +140,6 @@ local function after_caching()
 end
 
 local function init_wp_cache()
-    -- log.debug("Weapon caching state: " .. tostring(task_state) .. ", current type: " .. tostring(current_caching_type))
     if task_state == TASK_STATE.IDLE then return end
 
     local player_manager = sdk.get_managed_singleton("app.PlayerManager")
@@ -113,11 +149,13 @@ local function init_wp_cache()
     local wp_type = get_wp_type()
     if not wp_type or wp_type == -1 then return end
 
-    local wp_data = get_wp_data(target_wp_type)
-    if not wp_data then return end
-
     if task_state == TASK_STATE.CHANGING then
         if wp_type ~= current_caching_type then
+            local wp_data = get_wp_data(current_caching_type)
+            if not wp_data then
+                cache_status[current_caching_type] = 'Waiting for weapon data'
+                return
+            end
             hunter_create_info:set_WpType(current_caching_type)
             hunter_create_info:set_WpID(wp_data:get_Index())
             hunter_create_info:set_OuterWpID(-1)
@@ -130,34 +168,41 @@ local function init_wp_cache()
             )
         else
             task_state = TASK_STATE.CACHING
+            cache_status[current_caching_type] = 'Caching'
         end
-
     elseif task_state == TASK_STATE.CACHING then
         local funcs = task_lists[current_caching_type]
         local remaining = {}
 
         for i, func in ipairs(funcs) do
             local ok = func()
+            local components = describe_components(func, current_caching_type)
+            if components then cache_components[current_caching_type] = components end
             if not ok then
-                table.insert(remaining, func)  -- keep for next frame
+                table.insert(remaining, func)  
             end
         end
 
-        -- Replace the list with only the ones that failed this frame
         task_lists[current_caching_type] = remaining
 
         if #remaining == 0 then
-            -- All tasks succeeded
+            cache_status[current_caching_type] = 'Completed'
+            log.info('Weapon caching: Completed tasks for weapon type '..tostring(current_caching_type))
+            if cache_components[current_caching_type] then
+                log.info('Weapon caching components '..tostring(current_caching_type)..': '..cache_components[current_caching_type])
+            end
             after_caching()
         else
             attempt_counter = attempt_counter + 1
             if attempt_counter >= config.cache_function_attempts then
                 log.warn("Weapon caching: Some funcs failed for weapon type " .. tostring(current_caching_type))
-                task_lists[current_caching_type] = {}  -- drop the remaining failed tasks
+                cache_status[current_caching_type] = 'Failed (attempt limit)'
+                log.warn('Weapon caching components '..tostring(current_caching_type)..': '..
+                    (cache_components[current_caching_type] or 'unavailable (consumer layout not recognized)'))
+                task_lists[current_caching_type] = {}  
                 after_caching()
             end
         end
-
     elseif task_state == TASK_STATE.RESTORING then
         if wp_type ~= hunter_create_info:get_WpType() then
             player_manager:call(
@@ -173,7 +218,6 @@ local function init_wp_cache()
     end
 end
 
--- Frame update
 local skip_frame_counter = 0
 re.on_frame(function()
     skip_frame_counter = skip_frame_counter + 1
@@ -190,16 +234,18 @@ re.on_frame(function()
     init_wp_cache()
 end)
 
--- Expose API
 _WEAPON_CACHING = {
     register_cache_task = register_cache_task
 }
 
-
--- UI
 re.on_draw_ui(function()
     local changed, any_changed = false, false
     if imgui.tree_node("!Weapon Caching") then
+        imgui.text('Great Sword / weapon 0: '..cache_status[0])
+        imgui.text('GS components: '..(cache_components[0] or 'not yet identified'))
+        imgui.text('Charge Blade / weapon 9: '..cache_status[9])
+        imgui.text('CB components: '..(cache_components[9] or 'not yet identified'))
+        imgui.text('Current cache target: '..tostring(current_caching_type or 'none'))
         imgui.text("Number of frames to wait between attempts. Increasing it slows down caching, but may prevent disconnects/crashes.")
         changed, config.frames_per_attempt = imgui.drag_int("Frames per Attempt", config.frames_per_attempt, 1, 1, 1000)
         imgui.text("Number of attempts for each caching function. Increase will make caching slower, but may improve success rate.")
@@ -207,3 +253,5 @@ re.on_draw_ui(function()
         imgui.tree_pop()
     end
 end)
+
+log.info('Weapon Caching loaded')
